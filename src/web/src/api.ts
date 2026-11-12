@@ -4,6 +4,7 @@ import type {
   ImportResult,
   ProviderId,
   Report,
+  PricesInfo,
   SearchJob,
   Settings,
   SettingsView
@@ -74,6 +75,8 @@ export const api = {
       if (event === 'job') onJob(JSON.parse(data))
     })
   },
+  getPrices: () => request<PricesInfo>('GET', '/prices'),
+  refreshPrices: () => request<PricesInfo>('POST', '/prices/refresh'),
   listModels: (provider: ProviderId) => request<string[]>('GET', `/models/${provider}`),
   getSettings: (refresh = false) => request<SettingsView>('GET', `/settings${refresh ? '?refresh=1' : ''}`),
   saveSettings: (patch: Partial<Settings>) => request<SettingsView>('PATCH', '/settings', patch),

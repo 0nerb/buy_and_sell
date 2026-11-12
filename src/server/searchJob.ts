@@ -1,5 +1,6 @@
 import type { SearchJob } from '@shared/types'
 import { AIError } from './ai'
+import { refreshMissingInBackground } from './prices'
 import { searchPortfolios } from './search'
 
 /**
@@ -52,6 +53,8 @@ export function startSearch(month: string): SearchJob {
     .finally(() => {
       current.finishedAt = new Date().toISOString()
       notify()
+      // Tickers novos das carteiras já ganham cotação, sem precisar clicar no botão.
+      if (current.saved) refreshMissingInBackground()
     })
   return job
 }

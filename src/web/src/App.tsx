@@ -4,11 +4,13 @@ import {
   type ConsolidatedPortfolio,
   type Consensus,
   type ImportProgress,
+  type PricesInfo,
   type Report,
   type SettingsView
 } from '@shared/types'
 import { api } from './api'
 import { ImportPanel } from './components/ImportPanel'
+import type { PricesState } from './components/PricesBar'
 import { Portfolio } from './components/Portfolio'
 import { Recommendations } from './components/Recommendations'
 import { Reports } from './components/Reports'
@@ -29,12 +31,22 @@ export function App() {
   const [progress, setProgress] = useState<ImportProgress[]>([])
   const [dragging, setDragging] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [pricesInfo, setPricesInfo] = useState<PricesInfo | null>(null)
+  const [pricesLoading, setPricesLoading] = useState(false)
+  const [pricesError, setPricesError] = useState<string | null>(null)
   const dragDepth = useRef(0)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
     try {
-      const [r, c, p, s] = await Promise.all([api.listReports(), api.getConsensus(), api.getPortfolio(), api.getSettings()])
+      const [r, c, p, s, pi] = await Promise.all([
+        api.listReports(),
+        api.getConsensus(),
+        api.getPortfolio(),
+        api.getSettings(),
+        api.getPrices()
+      ])
+      setPricesInfo(pi)
       setReports(r)
       setConsensus(c)
       setPortfolio(p)
@@ -48,6 +60,24 @@ export function App() {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  const prices: PricesState = {
+    info: pricesInfo,
+    loading: pricesLoading,
+    error: pricesError,
+    refresh: async () => {
+      setPricesLoading(true)
+      setPricesError(null)
+      try {
+        setPricesInfo(await api.refreshPrices())
+        await refresh()
+      } catch (e) {
+        setPricesError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setPricesLoading(false)
+      }
+    }
+  }
 
   // A busca vive aqui (não na aba Carteira) para o indicador sobreviver à troca de abas.
   const search = useSearch(refresh)
@@ -180,9 +210,15 @@ export function App() {
         )}
 
         {tab === 'carteira' && settings && (
-          <Portfolio portfolio={portfolio} settings={settings} search={search} onOpenSettings={() => setTab('config')} />
+          <Portfolio
+            portfolio={portfolio}
+            settings={settings}
+            search={search}
+            prices={prices}
+            onOpenSettings={() => setTab('config')}
+          />
         )}
-        {tab === 'recomendacoes' && <Recommendations consensus={consensus} onImport={pick} />}
+        {tab === 'recomendacoes' && <Recommendations consensus={consensus} prices={prices} onImport={pick} />}
         {tab === 'relatorios' && <Reports reports={reports} onChange={refresh} onImport={pick} />}
         {tab === 'config' && settings && <Settings settings={settings} onChange={setSettings} onSaved={refresh} />}
       </main>

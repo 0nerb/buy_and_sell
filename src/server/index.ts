@@ -10,6 +10,7 @@ import { buildConsolidated } from '@shared/portfolio'
 import type { ProviderId, Settings } from '@shared/types'
 import { AIError, createProvider } from './ai'
 import { ImportError, importPdf } from './importer'
+import { getQuotes, pricesInfo, refreshMissingInBackground, refreshPrices } from './prices'
 import { currentJob, isRunning, startSearch, subscribe } from './searchJob'
 import {
   DATA_DIR,
@@ -82,7 +83,9 @@ app.post('/api/reports', async (c) => {
   const name = c.req.query('name') ?? 'relatorio.pdf'
   if (Number(c.req.header('content-length') ?? 0) > MAX_UPLOAD) throw new HttpError(413, 'Arquivo grande demais (máx. 60 MB).')
   const data = Buffer.from(await c.req.arrayBuffer())
-  return c.json(await importPdf(name, data))
+  const result = await importPdf(name, data)
+  if (result.status === 'ok') refreshMissingInBackground()
+  return c.json(result)
 })
 
 app.post('/api/reports/:id/reprocess', async (c) => {
@@ -121,8 +124,18 @@ app.get('/pdf/:id', async (c) => {
 })
 
 // ---------- Consenso e carteira ----------
-app.get('/api/consensus', (c) => c.json(buildConsensus(getReports(), getSettings())))
-app.get('/api/portfolio', (c) => c.json(buildConsolidated(getReports(), getSettings())))
+app.get('/api/consensus', (c) => c.json(buildConsensus(getReports(), getSettings(), new Date(), getQuotes())))
+app.get('/api/portfolio', (c) => c.json(buildConsolidated(getReports(), getSettings(), new Date(), getQuotes())))
+
+// ---------- Cotações ----------
+app.get('/api/prices', (c) => c.json(pricesInfo()))
+app.post('/api/prices/refresh', async (c) => {
+  try {
+    return c.json(await refreshPrices())
+  } catch (err) {
+    throw new HttpError(400, err instanceof Error ? err.message : String(err))
+  }
+})
 
 app.get('/api/search', (c) => c.json(currentJob()))
 

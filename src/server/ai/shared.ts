@@ -158,8 +158,9 @@ Como pesquisar:
 
 Formato da resposta — MUITO IMPORTANTE:
 Assim que terminar de ler uma página e identificar uma carteira, escreva IMEDIATAMENTE, antes de continuar pesquisando, um bloco assim (JSON numa linha só, um bloco por carteira):
-<carteira>{"institution": "XP", "portfolioName": "Top 10 Ações", "referenceMonth": "${month}", "publishedDate": "${month}-03", "sourceUrl": "https://url-exata-da-pagina-lida", "assets": [{"ticker": "PETR4", "company": "Petrobras", "weight": 0.1}]}</carteira>
+<carteira>{"institution": "XP", "portfolioName": "Top 10 Ações", "referenceMonth": "${month}", "publishedDate": "${month}-03", "sourceUrl": "https://url-exata-da-pagina-lida", "assets": [{"ticker": "PETR4", "company": "Petrobras", "weight": 0.1, "targetPrice": 52.5}]}</carteira>
 - "weight" é a fração do peso (10% -> 0.1) ou null; "company" e "publishedDate" (YYYY-MM-DD) podem ser null.
+- "targetPrice" é o preço-alvo em R$ que a instituição dá para o ativo (número), ou null se a página não informar. Vale a pena procurar: muitas carteiras e matérias listam o preço-alvo de cada ação.
 - "sourceUrl" é a URL da página onde você leu a carteira.
 - Inclua todos os ativos da carteira. Liste apenas o que você leu nas páginas; nunca complete uma carteira de memória.
 - Se depois achar uma versão mais completa da mesma carteira, escreva o bloco de novo (ele substitui o anterior).
@@ -172,6 +173,7 @@ Regras:
 - Inclua apenas carteiras e ativos que aparecem explicitamente nas anotações. Não acrescente nada.
 - "ticker" em maiúsculas no padrão da B3 (ex.: PETR4, ITUB4, TAEE11).
 - "weight" é o peso em fração (12,5% -> 0.125); null se não informado.
+- "targetPrice" é o preço-alvo em R$ do ativo; null se não informado.
 - "referenceMonth" no formato YYYY-MM; "publishedDate" em YYYY-MM-DD ou null.
 - "sourceUrl" deve ser a URL citada nas anotações para aquela carteira; use null se não houver.
 - Em "notFound", liste as instituições pedidas para as quais as anotações dizem não ter encontrado carteira.`
@@ -198,11 +200,12 @@ export const PORTFOLIOS_SCHEMA = {
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['ticker', 'company', 'weight'],
+              required: ['ticker', 'company', 'weight', 'targetPrice'],
               properties: {
                 ticker: { type: 'string' },
                 company: nullable({ type: 'string' }),
-                weight: nullable({ type: 'number' })
+                weight: nullable({ type: 'number' }),
+                targetPrice: nullable({ type: 'number' })
               }
             }
           }
@@ -223,7 +226,8 @@ export const PortfolioSchema = z.object({
     z.object({
       ticker: z.string(),
       company: z.string().nullable().optional().transform((v) => v ?? null),
-      weight: z.number().nullable().optional().transform((v) => v ?? null)
+      weight: z.number().nullable().optional().transform((v) => v ?? null),
+      targetPrice: z.number().positive().nullable().optional().catch(null).transform((v) => v ?? null)
     })
   )
 })

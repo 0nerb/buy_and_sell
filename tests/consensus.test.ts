@@ -62,4 +62,35 @@ describe('buildConsensus', () => {
     expect(c[0].action).toBe('manter')
     expect(c[0].score).toBeCloseTo(0)
   })
+
+  it('usa a cotação atual no potencial quando ela existe', () => {
+    const reports = [report('a', 'BTG Pactual', '2026-11-10', [['PETR4', 'compra', 50, 40]])]
+    const semCotacao = buildConsensus(reports, DEFAULT_SETTINGS, now)[0]
+    expect(semCotacao.upsideBasis).toBe('relatorio')
+    expect(semCotacao.upside).toBeCloseTo(0.25)
+
+    const quotes = { PETR4: { price: 44.56, currency: 'BRL', changePercent: 0.0232, time: null, name: null, analystTarget: { mean: 60, low: 55, high: 72, analysts: 12 }, fetchedAt: '' } }
+    const comCotacao = buildConsensus(reports, DEFAULT_SETTINGS, now, quotes)[0]
+    expect(comCotacao.currentPrice).toBe(44.56)
+    expect(comCotacao.upsideBasis).toBe('atual')
+    expect(comCotacao.upside).toBeCloseTo(50 / 44.56 - 1)
+  })
+
+  it('sem preço-alvo nos relatórios, usa o consenso de analistas do Yahoo', () => {
+    const reports = [report('a', 'XP', '2026-11-10', [['VALE3', 'compra']])]
+    const quotes = { VALE3: { price: 64, currency: 'BRL', changePercent: null, time: null, name: null, analystTarget: { mean: 80, low: 70, high: 90, analysts: 11 }, fetchedAt: '' } }
+    const c = buildConsensus(reports, DEFAULT_SETTINGS, now, quotes)[0]
+    expect(c.targetSource).toBe('yahoo')
+    expect(c.avgTargetPrice).toBe(80)
+    expect(c.analystCount).toBe(11)
+    expect(c.upside).toBeCloseTo(0.25)
+  })
+
+  it('preço-alvo dos relatórios tem prioridade sobre o do Yahoo', () => {
+    const reports = [report('a', 'XP', '2026-11-10', [['VALE3', 'compra', 70]])]
+    const quotes = { VALE3: { price: 64, currency: 'BRL', changePercent: null, time: null, name: null, analystTarget: { mean: 80, low: 70, high: 90, analysts: 11 }, fetchedAt: '' } }
+    const c = buildConsensus(reports, DEFAULT_SETTINGS, now, quotes)[0]
+    expect(c.targetSource).toBe('relatorios')
+    expect(c.avgTargetPrice).toBe(70)
+  })
 })

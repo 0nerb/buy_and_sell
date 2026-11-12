@@ -1,6 +1,8 @@
 import { Fragment, useMemo, useState } from 'react'
 import type { Action, Consensus } from '@shared/types'
-import { actionLabel, fmtDate, fmtMoney, fmtPct, ratingLabel } from '../format'
+import { actionLabel, fmtDate, fmtMoney, ratingLabel } from '../format'
+import { PricesBar, type PricesState } from './PricesBar'
+import { CurrentPriceCell, TargetCell, UpsideCell } from './PriceCells'
 
 type Filter = 'todas' | Action
 
@@ -20,7 +22,15 @@ function ScoreBar({ score }: { score: number }) {
   )
 }
 
-export function Recommendations({ consensus, onImport }: { consensus: Consensus[]; onImport: () => void }) {
+export function Recommendations({
+  consensus,
+  prices,
+  onImport
+}: {
+  consensus: Consensus[]
+  prices: PricesState
+  onImport: () => void
+}) {
   const [filter, setFilter] = useState<Filter>('todas')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState<string | null>(null)
@@ -67,6 +77,8 @@ export function Recommendations({ consensus, onImport }: { consensus: Consensus[
           ))}
         </div>
         <input type="search" placeholder="Buscar ticker ou empresa" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="spacer" />
+        <PricesBar prices={prices} />
       </div>
 
       <div className="card">
@@ -80,7 +92,7 @@ export function Recommendations({ consensus, onImport }: { consensus: Consensus[
               <th className="num">Neutro</th>
               <th className="num">Venda</th>
               <th className="num">Preço-alvo médio</th>
-              <th className="num">Preço ref.</th>
+              <th className="num">Preço atual</th>
               <th className="num">Potencial</th>
               <th>Atualizado</th>
             </tr>
@@ -102,9 +114,9 @@ export function Recommendations({ consensus, onImport }: { consensus: Consensus[
                   <td className="num">{c.buyCount}</td>
                   <td className="num">{c.neutralCount}</td>
                   <td className="num">{c.sellCount}</td>
-                  <td className="num">{fmtMoney(c.avgTargetPrice)}</td>
-                  <td className="num">{fmtMoney(c.referencePrice)}</td>
-                  <td className={`num ${c.upside == null ? '' : c.upside >= 0 ? 'pos' : 'neg'}`}>{fmtPct(c.upside)}</td>
+                  <TargetCell value={c.avgTargetPrice} source={c.targetSource} analysts={c.analystCount} />
+                  <CurrentPriceCell price={c.currentPrice} change={c.changePercent} />
+                  <UpsideCell upside={c.upside} basis={c.upsideBasis} />
                   <td>{fmtDate(c.lastUpdate)}</td>
                 </tr>
                 {open === c.ticker && (
@@ -149,8 +161,10 @@ export function Recommendations({ consensus, onImport }: { consensus: Consensus[
       </div>
 
       <p className="disclaimer">
-        Consolidação automática de relatórios de terceiros — não é recomendação de investimento. O preço de referência é o
-        citado nos próprios relatórios, não a cotação atual. Confira sempre o documento original.
+        Consolidação automática de relatórios de terceiros — não é recomendação de investimento. Preço-alvo médio: média
+        dos relatórios coletados ou, se nenhum informar, o consenso de analistas do Yahoo Finance. Potencial = preço-alvo
+        médio ÷ cotação atual − 1; com <sup>*</sup>, usa o preço citado no relatório porque ainda não há cotação. Confira
+        sempre o documento original.
       </p>
     </>
   )

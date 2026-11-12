@@ -6,6 +6,7 @@ import {
   type ApiKeySource,
   type ApiProviderId,
   type ProviderId,
+  type Quote,
   type Report,
   type Settings,
   type SettingsView
@@ -115,4 +116,20 @@ export async function getSettingsView(forceStatus = false): Promise<SettingsView
     gemini: getApiKey('gemini').source
   }
   return { ...settings, keys, aiReady: keys[settings.provider] !== null, claudeCode }
+}
+
+// ---------- Cotações ----------
+
+interface PricesFile {
+  updatedAt: string | null
+  missing: string[]
+  quotes: Record<string, Quote>
+}
+
+export function getPricesFile(): PricesFile {
+  return { updatedAt: null, missing: [], quotes: {}, ...readJson<Partial<PricesFile>>('prices.json', {}) }
+}
+
+export function savePricesFile(data: PricesFile): void {
+  writeJson('prices.json', data)
 }

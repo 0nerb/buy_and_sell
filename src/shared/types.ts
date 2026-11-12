@@ -1,6 +1,9 @@
 /** Recomendação normalizada, independente do vocabulário de cada banco. */
 export type Rating = 'compra' | 'neutro' | 'venda'
 
+/** De onde veio o preço-alvo médio exibido. */
+export type TargetSource = 'relatorios' | 'yahoo' | null
+
 /** Ação final sugerida pelo consenso. */
 export type Action = 'comprar' | 'manter' | 'vender'
 
@@ -91,10 +94,21 @@ export interface Consensus {
   buyCount: number
   neutralCount: number
   sellCount: number
+  /** Média dos preços-alvo dos relatórios; sem nenhum, o consenso de analistas do Yahoo Finance. */
   avgTargetPrice: number | null
-  /** Preço mais recente citado nos relatórios (não é cotação em tempo real). */
+  targetSource: TargetSource
+  /** Nº de analistas no consenso do Yahoo (quando targetSource = 'yahoo'). */
+  analystCount: number | null
+  /** Preço mais recente citado nos relatórios. */
   referencePrice: number | null
+  /** Cotação atual (Yahoo Finance), se já foi buscada. */
+  currentPrice: number | null
+  /** Variação do dia da cotação atual (fração). */
+  changePercent: number | null
+  /** Potencial = preço-alvo médio / preço − 1, usando a cotação atual quando houver. */
   upside: number | null
+  /** Qual preço foi usado no potencial. */
+  upsideBasis: 'atual' | 'relatorio' | null
   lastUpdate: string
   sources: ConsensusSource[]
 }
@@ -200,7 +214,12 @@ export interface ConsolidatedEntry {
   weight: number
   score: number
   avgTargetPrice: number | null
+  targetSource: TargetSource
+  analystCount: number | null
+  currentPrice: number | null
+  changePercent: number | null
   upside: number | null
+  upsideBasis: 'atual' | 'relatorio' | null
   /** "novo" = não estava na carteira consolidada de 30 dias atrás. */
   status: 'novo' | 'mantido'
 }
@@ -224,4 +243,26 @@ export interface SearchJob {
   /** Carteiras já gravadas no banco nesta busca (atualiza durante a busca). */
   saved: number
   result: SearchResult | null
+}
+
+/** Cotação de uma ação (Yahoo Finance; na B3 costuma ter ~15 min de atraso). */
+export interface Quote {
+  price: number
+  currency: string
+  /** Variação no dia, em fração (0.0123 = +1,23%). */
+  changePercent: number | null
+  /** Horário da cotação na bolsa (ISO). */
+  time: string | null
+  name: string | null
+  /** Consenso dos analistas no Yahoo Finance (preço-alvo de 12 meses). */
+  analystTarget: { mean: number; low: number | null; high: number | null; analysts: number | null } | null
+  fetchedAt: string
+}
+
+export interface PricesInfo {
+  /** Última vez que o botão "Atualizar preços" rodou (ISO). */
+  updatedAt: string | null
+  count: number
+  /** Tickers sem cotação encontrada no Yahoo Finance. */
+  missing: string[]
 }

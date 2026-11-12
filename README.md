@@ -38,6 +38,13 @@ Isso é para **uso pessoal**, no computador de quem tem a assinatura. Se o app u
 
 Para adicionar outro provedor, basta implementar a interface `AIProvider` de [src/server/ai/shared.ts](src/server/ai/shared.ts).
 
+### Cotações e preço-alvo ([src/server/prices.ts](src/server/prices.ts))
+
+O botão **↻ Atualizar preços** (abas Carteira e Recomendações) busca no **Yahoo Finance** — a mesma fonte do `yfinance` do Python, aqui pelo pacote [`yahoo-finance2`](https://github.com/gadicc/yahoo-finance2), para não exigir Python instalado — a cotação atual de todas as ações (sufixo `.SA`; costuma ter ~15 min de atraso) e o consenso de preço-alvo dos analistas. Ações novas, vindas de PDFs ou da busca, ganham cotação automaticamente. As cotações ficam em `data/prices.json`.
+
+- **Preço-alvo médio:** média dos preços-alvo dos relatórios e carteiras coletados; se nenhum informar, o consenso de analistas do Yahoo Finance (indicado na tabela com o número de analistas).
+- **Potencial:** preço-alvo médio ÷ cotação atual − 1. Sem cotação, usa o preço citado no relatório (marcado com `*`).
+
 ### Consenso ([src/shared/consensus.ts](src/shared/consensus.ts))
 
 - Para cada par (banco, ticker), vale só a recomendação **mais recente**.

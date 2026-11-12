@@ -215,3 +215,8 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; back
   .spinner { animation-duration: 2.4s; }
 }
 .search-indicator .search-saved { background: var(--buy-bg); color: var(--buy); padding: 1px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+
+.toolbar .spacer { flex: 1; }
+.prices-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.prices-bar button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+td sup { color: var(--muted); }

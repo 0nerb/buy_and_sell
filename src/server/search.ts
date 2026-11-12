@@ -51,7 +51,7 @@ function toReport(p: FoundPortfolio, month: string, provider: ProviderId, verifi
       company: a.company,
       rating: 'compra',
       originalRating: `Carteira: ${p.portfolioName}${a.weight != null ? ` (${(a.weight * 100).toFixed(1)}%)` : ''}`,
-      targetPrice: null,
+      targetPrice: a.targetPrice,
       priceAtReport: null,
       currency: 'BRL',
       horizon: null,

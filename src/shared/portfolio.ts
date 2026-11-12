@@ -1,6 +1,6 @@
 import { activeReports, buildConsensus } from './consensus'
 import { canonicalInstitution } from './institutions'
-import type { Consensus, ConsolidatedPortfolio, Report, Settings } from './types'
+import type { Consensus, ConsolidatedPortfolio, Quote, Report, Settings } from './types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -23,8 +23,13 @@ function rank(consensus: Consensus[], size: number): Consensus[] {
  * compra entre as instituições, com peso proporcional ao nº de indicações.
  * Compara com a carteira que o app teria montado 30 dias atrás.
  */
-export function buildConsolidated(reports: Report[], settings: Settings, now = new Date()): ConsolidatedPortfolio {
-  const current = rank(buildConsensus(reports, settings, now), settings.portfolioSize)
+export function buildConsolidated(
+  reports: Report[],
+  settings: Settings,
+  now = new Date(),
+  quotes: Record<string, Quote> = {}
+): ConsolidatedPortfolio {
+  const current = rank(buildConsensus(reports, settings, now, quotes), settings.portfolioSize)
   const before = new Date(now.getTime() - 30 * DAY_MS)
   const previous = rank(buildConsensus(reports, settings, before), settings.portfolioSize)
   const previousSet = new Set(previous.map((c) => c.ticker))
@@ -47,7 +52,12 @@ export function buildConsolidated(reports: Report[], settings: Settings, now = n
       weight: totalVotes ? c.buyCount / totalVotes : 0,
       score: c.score,
       avgTargetPrice: c.avgTargetPrice,
+      targetSource: c.targetSource,
+      analystCount: c.analystCount,
+      currentPrice: c.currentPrice,
+      changePercent: c.changePercent,
       upside: c.upside,
+      upsideBasis: c.upsideBasis,
       status: previous.length === 0 || previousSet.has(c.ticker) ? 'mantido' : 'novo'
     })),
     removed: previous.filter((c) => !currentSet.has(c.ticker)).map((c) => ({ ticker: c.ticker, company: c.company }))

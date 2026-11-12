@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { PROVIDER_LABEL, type ConsolidatedPortfolio, type SettingsView } from '@shared/types'
-import { fmtMoney, fmtPct } from '../format'
+import { PricesBar, type PricesState } from './PricesBar'
+import { CurrentPriceCell, TargetCell, UpsideCell } from './PriceCells'
 import { monthName, type SearchState } from '../useSearch'
 
 interface Props {
   portfolio: ConsolidatedPortfolio | null
   settings: SettingsView
   search: SearchState
+  prices: PricesState
   onOpenSettings: () => void
 }
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 
-export function Portfolio({ portfolio, settings, search, onOpenSettings }: Props) {
+export function Portfolio({ portfolio, settings, search, prices, onOpenSettings }: Props) {
   const [month, setMonth] = useState(currentMonth())
   const { job, running } = search
   const notFound = job?.finishedAt ? (job.result?.notFound ?? []) : []
@@ -71,12 +73,16 @@ export function Portfolio({ portfolio, settings, search, onOpenSettings }: Props
         </div>
       ) : (
         <>
-          <p className="muted">
-            {entries.length === 1 ? 'A ação mais recomendada' : `As ${entries.length} ações mais recomendadas`} para compra
-            entre {portfolio!.institutionsTracked}{' '}
-            {portfolio!.institutionsTracked === 1 ? 'instituição acompanhada' : 'instituições acompanhadas'}. Peso
-            proporcional ao número de indicações.
-          </p>
+          <div className="toolbar">
+            <p className="muted" style={{ margin: 0 }}>
+              {entries.length === 1 ? 'A ação mais recomendada' : `As ${entries.length} ações mais recomendadas`} para
+              compra entre {portfolio!.institutionsTracked}{' '}
+              {portfolio!.institutionsTracked === 1 ? 'instituição acompanhada' : 'instituições acompanhadas'}. Peso
+              proporcional ao número de indicações.
+            </p>
+            <div className="spacer" />
+            <PricesBar prices={prices} />
+          </div>
           <div className="card">
             <table>
               <thead>
@@ -87,6 +93,7 @@ export function Portfolio({ portfolio, settings, search, onOpenSettings }: Props
                   <th className="num">Peso</th>
                   <th>Instituições</th>
                   <th className="num">Preço-alvo médio</th>
+                  <th className="num">Preço atual</th>
                   <th className="num">Potencial</th>
                   <th />
                 </tr>
@@ -109,8 +116,9 @@ export function Portfolio({ portfolio, settings, search, onOpenSettings }: Props
                       </div>
                     </td>
                     <td className="wrap small">{e.institutions.join(', ')}</td>
-                    <td className="num">{fmtMoney(e.avgTargetPrice)}</td>
-                    <td className={`num ${e.upside == null ? '' : e.upside >= 0 ? 'pos' : 'neg'}`}>{fmtPct(e.upside)}</td>
+                    <TargetCell value={e.avgTargetPrice} source={e.targetSource} analysts={e.analystCount} />
+                    <CurrentPriceCell price={e.currentPrice} change={e.changePercent} />
+                    <UpsideCell upside={e.upside} basis={e.upsideBasis} />
                     <td>{e.status === 'novo' && <span className="badge comprar">Novo</span>}</td>
                   </tr>
                 ))}

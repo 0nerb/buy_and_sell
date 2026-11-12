@@ -1,6 +1,6 @@
 import { canonicalInstitution } from './institutions'
 import { ratingValue } from './ratings'
-import type { Action, Consensus, ConsensusSource, Report, Settings } from './types'
+import type { Action, Consensus, ConsensusSource, Quote, Report, Settings } from './types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -48,7 +48,12 @@ export function activeReports(reports: Report[], now: Date): Report[] {
  *  - Cada recomendação pesa 0.5^(idade / halfLifeDays).
  *  - score = média ponderada (compra = +1, neutro = 0, venda = -1).
  */
-export function buildConsensus(reports: Report[], settings: Settings, now = new Date()): Consensus[] {
+export function buildConsensus(
+  reports: Report[],
+  settings: Settings,
+  now = new Date(),
+  quotes: Record<string, Quote> = {}
+): Consensus[] {
   // chave: ticker -> instituição -> fonte mais recente
   const latest = new Map<string, Map<string, ConsensusSource & { company: string | null }>>()
 
@@ -93,9 +98,16 @@ export function buildConsensus(reports: Report[], settings: Settings, now = new 
     const action: Action =
       score >= settings.actionThreshold ? 'comprar' : score <= -settings.actionThreshold ? 'vender' : 'manter'
 
-    const avgTargetPrice = mean(sources.flatMap((s) => (s.targetPrice ? [s.targetPrice] : [])))
     const referencePrice = sources.find((s) => s.priceAtReport)?.priceAtReport ?? null
-    const upside = avgTargetPrice && referencePrice ? avgTargetPrice / referencePrice - 1 : null
+    const quote = quotes[ticker]?.currency === 'BRL' ? quotes[ticker] : undefined
+    // Preço-alvo: primeiro os relatórios coletados; sem nenhum, o consenso de analistas do Yahoo.
+    const reportTarget = mean(sources.flatMap((s) => (s.targetPrice ? [s.targetPrice] : [])))
+    const analyst = quote?.analystTarget ?? null
+    const avgTargetPrice = reportTarget ?? analyst?.mean ?? null
+    const targetSource = reportTarget != null ? 'relatorios' : analyst ? 'yahoo' : null
+    const currentPrice = quote?.price ?? null
+    const basePrice = currentPrice ?? referencePrice
+    const upside = avgTargetPrice && basePrice ? avgTargetPrice / basePrice - 1 : null
 
     result.push({
       ticker,
@@ -106,8 +118,13 @@ export function buildConsensus(reports: Report[], settings: Settings, now = new 
       neutralCount: sources.filter((s) => s.rating === 'neutro').length,
       sellCount: sources.filter((s) => s.rating === 'venda').length,
       avgTargetPrice,
+      targetSource,
+      analystCount: targetSource === 'yahoo' ? (analyst?.analysts ?? null) : null,
       referencePrice,
+      currentPrice,
+      changePercent: quote?.changePercent ?? null,
       upside,
+      upsideBasis: upside == null ? null : currentPrice ? 'atual' : 'relatorio',
       lastUpdate: sources[0].reportDate,
       sources: sources.map(({ company: _c, ...s }) => s)
     })
