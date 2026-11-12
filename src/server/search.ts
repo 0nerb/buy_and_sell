@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { canonicalInstitution } from '@shared/institutions'
 import type { Report, SearchProgress, SearchResult, StockCall } from '@shared/types'
 import { activeProvider, AIError } from './ai'
 import { monthLabel, PORTFOLIOS_SCHEMA, PortfoliosSchema, researchPrompt, STRUCTURE_PROMPT } from './ai/shared'
@@ -26,8 +27,8 @@ export async function searchPortfolios(
   month: string,
   onProgress: (p: SearchProgress) => void
 ): Promise<SearchResult> {
-  const provider = activeProvider()
-  if (!provider) throw new AIError('Configure a chave de API do provedor de IA nas Configurações.')
+  const provider = await activeProvider()
+  if (!provider) throw new AIError('O provedor de IA não está pronto: configure a chave de API ou o login do Claude nas Configurações.')
   const { trackedInstitutions } = getSettings()
   if (trackedInstitutions.length === 0) throw new AIError('Nenhuma instituição selecionada nas Configurações.')
 
@@ -81,10 +82,10 @@ export async function searchPortfolios(
     const verified = !!p.sourceUrl && (seenUrls.has(p.sourceUrl) || seenHosts.has(hostOf(p.sourceUrl)))
 
     const report: Report = {
-      id: createHash('sha256').update(`web|${p.institution}|${p.portfolioName}|${refMonth}`.toLowerCase()).digest('hex'),
+      id: createHash('sha256').update(`web|${canonicalInstitution(p.institution)}|${p.portfolioName}|${refMonth}`.toLowerCase()).digest('hex'),
       fileName: `${p.portfolioName} — ${monthLabel(refMonth)}`,
       filePath: '',
-      institution: p.institution,
+      institution: canonicalInstitution(p.institution),
       reportDate,
       title: p.portfolioName,
       summary: `Carteira encontrada pela busca automática (${calls.length} ativos).`,
@@ -98,7 +99,7 @@ export async function searchPortfolios(
       calls
     }
     saveReport(report)
-    institutions.add(p.institution)
+    institutions.add(canonicalInstitution(p.institution))
     saved++
   }
 

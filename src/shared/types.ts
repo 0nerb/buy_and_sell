@@ -22,12 +22,20 @@ export interface StockCall {
 
 export type ExtractionMethod = 'ia' | 'heuristica'
 
-/** Fornecedores de IA suportados. */
-export type ProviderId = 'anthropic' | 'gemini'
+/**
+ * Fornecedores de IA suportados.
+ *  - claude-code: usa a assinatura Claude (Pro/Max) pelo Claude Code instalado neste computador;
+ *  - anthropic / gemini: chave de API, cobrança por uso.
+ */
+export type ProviderId = 'claude-code' | 'anthropic' | 'gemini'
+
+/** Provedores que usam chave de API. */
+export type ApiProviderId = Exclude<ProviderId, 'claude-code'>
 
 export const PROVIDER_LABEL: Record<ProviderId, string> = {
-  anthropic: 'Claude (Anthropic)',
-  gemini: 'Gemini (Google)'
+  'claude-code': 'Claude — assinatura Pro/Max',
+  anthropic: 'Claude — chave de API',
+  gemini: 'Gemini — chave de API'
 }
 
 /** Origem do relatório: PDF importado ou carteira encontrada pela busca na web. */
@@ -93,6 +101,10 @@ export interface Consensus {
 
 export interface Settings {
   provider: ProviderId
+  /** Alias do Claude Code: opus, sonnet ou haiku. */
+  claudeCodeModel: string
+  /** Caminho do executável do Claude Code ('' = detectar automaticamente). */
+  claudeCodePath: string
   anthropicModel: string
   geminiModel: string
   /** Instituições cujas carteiras recomendadas a busca automática procura. */
@@ -121,7 +133,9 @@ export const DEFAULT_INSTITUTIONS = [
 ]
 
 export const DEFAULT_SETTINGS: Settings = {
-  provider: 'anthropic',
+  provider: 'claude-code',
+  claudeCodeModel: 'opus',
+  claudeCodePath: '',
   anthropicModel: 'claude-opus-5-5',
   geminiModel: 'gemini-3.8-flash',
   trackedInstitutions: DEFAULT_INSTITUTIONS,
@@ -131,13 +145,28 @@ export const DEFAULT_SETTINGS: Settings = {
   actionThreshold: 0.4
 }
 
-export type ApiKeySource = 'salva' | 'ambiente' | null
+export type ApiKeySource = 'salva' | 'ambiente' | 'login' | null
+
+/** Situação do Claude Code neste computador. */
+export interface ClaudeCodeStatus {
+  /** Caminho do executável encontrado (null = não instalado/não encontrado). */
+  path: string | null
+  version: string | null
+  loggedIn: boolean
+  email: string | null
+  /** Plano da assinatura (pro, max…) ou o método de login. */
+  plan: string | null
+  /** Uso da assinatura na última chamada (0..1), se disponível. */
+  usage: { fiveHour: number | null; sevenDay: number | null; resetsAt: string | null } | null
+  error: string | null
+}
 
 export interface SettingsView extends Settings {
   /** Fonte da chave de cada fornecedor (null = não configurada). */
   keys: Record<ProviderId, ApiKeySource>
   /** true quando o fornecedor ativo tem chave — ou seja, dá para usar IA. */
   aiReady: boolean
+  claudeCode: ClaudeCodeStatus
 }
 
 export interface ImportProgress {

@@ -84,7 +84,7 @@ export const api = {
     return result
   },
   listModels: (provider: ProviderId) => request<string[]>('GET', `/models/${provider}`),
-  getSettings: () => request<SettingsView>('GET', '/settings'),
+  getSettings: (refresh = false) => request<SettingsView>('GET', `/settings${refresh ? '?refresh=1' : ''}`),
   saveSettings: (patch: Partial<Settings>) => request<SettingsView>('PATCH', '/settings', patch),
   setApiKey: (provider: ProviderId, key: string | null) =>
     request<SettingsView>('PUT', `/settings/keys/${provider}`, { key })

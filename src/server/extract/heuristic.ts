@@ -1,3 +1,4 @@
+import { INSTITUTIONS } from '@shared/institutions'
 import { nearestRating } from '@shared/ratings'
 import type { Rating, StockCall } from '@shared/types'
 import { B3_TICKER, dedupeCalls, today, type ExtractedReport } from './common'
@@ -7,29 +8,6 @@ import { B3_TICKER, dedupeCalls, today, type ExtractedReport } from './common'
  * "início de cobertura" e "carteira recomendada", mas erra com layouts em
  * tabela complexos. Serve de fallback quando não há chave de API.
  */
-
-const INSTITUTIONS: [RegExp, string][] = [
-  [/btg\s*pactual|\bbtg\b/i, 'BTG Pactual'],
-  [/\bxp\s*(investimentos|research)?\b/i, 'XP'],
-  [/ita[uú]\s*bba/i, 'Itaú BBA'],
-  [/bradesco\s*bbi/i, 'Bradesco BBI'],
-  [/\bsafra\b/i, 'Safra'],
-  [/santander/i, 'Santander'],
-  [/\bgenial\b/i, 'Genial'],
-  [/[áa]gora\s*investimentos/i, 'Ágora'],
-  [/bb\s*investimentos|banco\s+do\s+brasil/i, 'BB Investimentos'],
-  [/\binter\s*(invest|research)/i, 'Inter'],
-  [/goldman\s*sachs/i, 'Goldman Sachs'],
-  [/j\.?\s*p\.?\s*morgan/i, 'JPMorgan'],
-  [/morgan\s*stanley/i, 'Morgan Stanley'],
-  [/\bubs\b/i, 'UBS'],
-  [/bank\s+of\s+america|bofa/i, 'BofA'],
-  [/citi(group|\s*research)?\b/i, 'Citi'],
-  [/\bwarren\b/i, 'Warren'],
-  [/\bnord\s*(research|investimentos)\b/i, 'Nord'],
-  [/empiricus/i, 'Empiricus'],
-  [/\bmodal\b/i, 'Modal']
-]
 
 const MONTHS: Record<string, number> = {
   janeiro: 1, fevereiro: 2, março: 3, marco: 3, abril: 4, maio: 5, junho: 6,

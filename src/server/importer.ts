@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { canonicalInstitution } from '@shared/institutions'
 import type { ImportResult, Report } from '@shared/types'
 import { activeProvider } from './ai'
 import { today, type ExtractedReport } from './extract/common'
@@ -29,7 +30,7 @@ export async function importPdf(fileName: string, data: Buffer, force = false): 
   let textCache: Promise<string> | null = null
   const getText = () => (textCache ??= pdfToText(data).then((r) => r.text))
 
-  const provider = activeProvider()
+  const provider = await activeProvider()
   let extracted: ExtractedReport
   let method: Report['method']
   if (provider) {
@@ -46,7 +47,7 @@ export async function importPdf(fileName: string, data: Buffer, force = false): 
     id,
     fileName: existing?.fileName ?? fileName,
     filePath,
-    institution: extracted.institution || 'Desconhecida',
+    institution: canonicalInstitution(extracted.institution) || 'Desconhecida',
     reportDate: extracted.reportDate || today(),
     title: extracted.title,
     summary: extracted.summary,

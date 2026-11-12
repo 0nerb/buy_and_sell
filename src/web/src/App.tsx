@@ -161,10 +161,12 @@ export function App() {
 
         {settings && !settings.aiReady && tab !== 'config' && (
           <div className="notice">
-            Sem chave de API do {PROVIDER_LABEL[settings.provider]}: a busca automática fica desligada e os PDFs são
-            lidos por uma heurística simples, bem menos precisa.{' '}
+            {settings.provider === 'claude-code'
+              ? 'O Claude (assinatura) não está conectado'
+              : `Sem chave de API do ${PROVIDER_LABEL[settings.provider]}`}
+            : a busca automática fica desligada e os PDFs são lidos por uma heurística simples, bem menos precisa.{' '}
             <button className="link" onClick={() => setTab('config')}>
-              Configurar chave
+              Configurar
             </button>
           </div>
         )}

@@ -28,12 +28,17 @@ Para relatórios da área logada dos bancos: arraste os PDFs para a janela. O ap
 
 ### Provedores de IA
 
-| Provedor | Onde criar a chave | Variável de ambiente |
+| Provedor | Precisa de | Custo |
 |---|---|---|
-| Claude (Anthropic) | [console.anthropic.com](https://console.anthropic.com/settings/keys) | `ANTHROPIC_API_KEY` |
-| Gemini (Google) | [aistudio.google.com](https://aistudio.google.com/apikey) | `GEMINI_API_KEY` |
+| **Claude — assinatura Pro/Max** (padrão) | [Claude Code](https://claude.com/claude-code) instalado e logado neste computador | Entra na cota da sua assinatura |
+| Claude — chave de API | Chave em [console.anthropic.com](https://console.anthropic.com/settings/keys) ou `ANTHROPIC_API_KEY` | Por uso |
+| Gemini — chave de API | Chave em [aistudio.google.com](https://aistudio.google.com/apikey) ou `GEMINI_API_KEY` | Por uso |
 
-As duas chaves podem ficar cadastradas e você alterna o provedor nas Configurações. A lista de modelos é carregada da própria API. Para adicionar outro provedor, basta implementar a interface `AIProvider` de [src/main/ai/shared.ts](src/main/ai/shared.ts).
+**Como funciona o modo assinatura** ([src/server/ai/claudeCode.ts](src/server/ai/claudeCode.ts)): o app não usa chave nem guarda nenhum token. Ele executa o Claude Code em modo não interativo (`claude -p`), e o Claude Code usa o login que você já fez nele (`claude` → `/login`). Cada execução roda numa pasta temporária vazia, só com as ferramentas necessárias (`Read` para o PDF, `WebSearch`/`WebFetch` para a busca), sem MCP, hooks ou configurações pessoais. O app encontra o executável no PATH ou dentro da extensão do VS Code/Cursor, e dá para informar o caminho manualmente nas Configurações. A tela mostra quanto da janela de 5 horas e da cota semanal a última busca usou.
+
+Isso é para **uso pessoal**, no computador de quem tem a assinatura. Se o app um dia for usado por outras pessoas, cada uma precisa usar a própria chave de API: a assinatura é individual.
+
+Para adicionar outro provedor, basta implementar a interface `AIProvider` de [src/server/ai/shared.ts](src/server/ai/shared.ts).
 
 ### Consenso ([src/shared/consensus.ts](src/shared/consensus.ts))
 
@@ -53,7 +58,7 @@ npm start          # gera a interface e abre o servidor em http://localhost:3000
 
 Depois é só abrir **http://localhost:3000** no navegador. O servidor escuta apenas em `127.0.0.1`: ninguém na sua rede consegue acessar.
 
-As chaves de API podem ser coladas em **Configurações** (ficam em `data/secrets.json`, legível só pelo seu usuário) ou definidas num arquivo `.env` na raiz do projeto:
+Se você tem Claude Pro/Max e o Claude Code instalado e logado, não precisa configurar mais nada. As chaves de API (opcionais) podem ser coladas em **Configurações** (ficam em `data/secrets.json`, legível só pelo seu usuário) ou definidas num arquivo `.env` na raiz do projeto:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
@@ -84,8 +89,9 @@ src/
     store.ts       persistência em JSON + chaves de API criptografadas
     ai/
       shared.ts    interface AIProvider, prompts e schemas
-      anthropic.ts provedor Claude
-      gemini.ts    provedor Gemini
+      claudeCode.ts provedor Claude por assinatura (via Claude Code)
+      anthropic.ts  provedor Claude por chave de API
+      gemini.ts     provedor Gemini
     extract/
       heuristic.ts extração offline por regex
   web/             interface React (Vite)

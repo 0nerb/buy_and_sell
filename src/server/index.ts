@@ -28,7 +28,7 @@ const DEV = process.argv.includes('--dev')
 const HOST = '127.0.0.1'
 const WEB_DIR = resolve('dist/web')
 const WEB_DIR_RELATIVE = 'dist/web' // serveStatic resolve a partir do diretório atual
-const PROVIDERS: ProviderId[] = ['anthropic', 'gemini']
+const PROVIDERS: ProviderId[] = ['claude-code', 'anthropic', 'gemini']
 const MAX_UPLOAD = 60 * 1024 * 1024
 
 const app = new Hono()
@@ -147,23 +147,25 @@ app.post('/api/search', async (c) => {
 
 // ---------- Configurações ----------
 app.get('/api/models/:provider', async (c) => {
-  const p = createProvider(provider(c.req.param('provider')))
+  const p = await createProvider(provider(c.req.param('provider')))
   return c.json(p ? await p.listModels() : [])
 })
 
-app.get('/api/settings', (c) => c.json(getSettingsView()))
+app.get('/api/settings', async (c) => c.json(await getSettingsView(c.req.query('refresh') === '1')))
 
 app.patch('/api/settings', async (c) => {
   const patch = await c.req.json<Partial<Settings>>()
   if (patch.provider) provider(patch.provider)
   saveSettings(patch)
-  return c.json(getSettingsView())
+  return c.json(await getSettingsView('claudeCodePath' in patch))
 })
 
 app.put('/api/settings/keys/:provider', async (c) => {
   const { key } = await c.req.json<{ key: string | null }>()
-  setApiKey(provider(c.req.param('provider')), key)
-  return c.json(getSettingsView())
+  const id = provider(c.req.param('provider'))
+  if (id === 'claude-code') throw new HttpError(400, 'O Claude por assinatura usa o login do Claude Code, não uma chave.')
+  setApiKey(id, key)
+  return c.json(await getSettingsView())
 })
 
 // ---------- Interface (build de produção) ----------

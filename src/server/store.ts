@@ -1,8 +1,10 @@
+import { claudeCodeStatus } from './ai/claudeCode'
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
   DEFAULT_SETTINGS,
   type ApiKeySource,
+  type ApiProviderId,
   type ProviderId,
   type Report,
   type Settings,
@@ -80,14 +82,14 @@ export function saveSettings(patch: Partial<Settings>): Settings {
 // Ficam em data/secrets.json, legível só pelo seu usuário (chmod 600).
 // O servidor só escuta em 127.0.0.1, então elas nunca chegam ao navegador.
 
-type Secrets = Partial<Record<ProviderId, string>>
+type Secrets = Partial<Record<ApiProviderId, string>>
 
-const ENV_VARS: Record<ProviderId, string[]> = {
+const ENV_VARS: Record<ApiProviderId, string[]> = {
   anthropic: ['ANTHROPIC_API_KEY'],
   gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY']
 }
 
-export function setApiKey(provider: ProviderId, key: string | null): void {
+export function setApiKey(provider: ApiProviderId, key: string | null): void {
   const secrets = readJson<Secrets>('secrets.json', {})
   const trimmed = key?.trim()
   if (trimmed) secrets[provider] = trimmed
@@ -95,7 +97,7 @@ export function setApiKey(provider: ProviderId, key: string | null): void {
   writeJson('secrets.json', secrets, 0o600)
 }
 
-export function getApiKey(provider: ProviderId): { key: string | null; source: ApiKeySource } {
+export function getApiKey(provider: ApiProviderId): { key: string | null; source: ApiKeySource } {
   const stored = readJson<Secrets>('secrets.json', {})[provider]
   if (stored) return { key: stored, source: 'salva' }
   for (const name of ENV_VARS[provider]) {
@@ -104,11 +106,13 @@ export function getApiKey(provider: ProviderId): { key: string | null; source: A
   return { key: null, source: null }
 }
 
-export function getSettingsView(): SettingsView {
+export async function getSettingsView(forceStatus = false): Promise<SettingsView> {
   const settings = getSettings()
+  const claudeCode = await claudeCodeStatus(settings.claudeCodePath, forceStatus)
   const keys = {
+    'claude-code': claudeCode.path && claudeCode.loggedIn ? ('login' as const) : null,
     anthropic: getApiKey('anthropic').source,
     gemini: getApiKey('gemini').source
   }
-  return { ...settings, keys, aiReady: keys[settings.provider] !== null }
+  return { ...settings, keys, aiReady: keys[settings.provider] !== null, claudeCode }
 }

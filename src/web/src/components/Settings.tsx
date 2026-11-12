@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { DEFAULT_INSTITUTIONS, PROVIDER_LABEL, type ProviderId, type SettingsView } from '@shared/types'
+import {
+  DEFAULT_INSTITUTIONS,
+  PROVIDER_LABEL,
+  type ApiProviderId,
+  type ProviderId,
+  type SettingsView
+} from '@shared/types'
 
 interface Props {
   settings: SettingsView
@@ -8,9 +14,10 @@ interface Props {
   onSaved: () => void
 }
 
-const PROVIDERS: ProviderId[] = ['anthropic', 'gemini']
+const PROVIDERS: ProviderId[] = ['claude-code', 'anthropic', 'gemini']
+const API_PROVIDERS: ApiProviderId[] = ['anthropic', 'gemini']
 
-const KEY_INFO: Record<ProviderId, { url: string; site: string; placeholder: string; env: string }> = {
+const KEY_INFO: Record<ApiProviderId, { url: string; site: string; placeholder: string; env: string }> = {
   anthropic: {
     url: 'https://console.anthropic.com/settings/keys',
     site: 'console.anthropic.com',
@@ -26,7 +33,7 @@ const KEY_INFO: Record<ProviderId, { url: string; site: string; placeholder: str
 }
 
 /** Sugestões exibidas antes de a lista real de modelos ser carregada da API. */
-const SUGGESTED_MODELS: Record<ProviderId, string[]> = {
+const SUGGESTED_MODELS: Record<ApiProviderId, string[]> = {
   anthropic: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'],
   gemini: []
 }
@@ -42,8 +49,9 @@ export function Settings({ settings, onChange, onSaved }: Props) {
       <section className="card">
         <h2>Provedor de IA</h2>
         <p className="muted">
-          A IA lê os PDFs e faz a busca automática de carteiras. Você pode cadastrar as duas chaves e alternar quando
-          quiser. As chaves ficam só no seu computador (data/secrets.json) e nunca são enviadas ao navegador.
+          A IA lê os PDFs e faz a busca automática de carteiras. Com a assinatura Claude (Pro/Max) não precisa de
+          chave de API: o app usa o Claude Code instalado neste computador. As chaves de API, se usar, ficam só no
+          seu computador (data/secrets.json) e nunca são enviadas ao navegador.
         </p>
         <div className="field">
           <label>Usar</label>
@@ -51,14 +59,24 @@ export function Settings({ settings, onChange, onSaved }: Props) {
             {PROVIDERS.map((p) => (
               <option key={p} value={p}>
                 {PROVIDER_LABEL[p]}
-                {settings.keys[p] ? '' : ' — sem chave'}
+                {settings.keys[p] ? '' : p === 'claude-code' ? ' — não conectado' : ' — sem chave'}
               </option>
             ))}
           </select>
         </div>
       </section>
 
-      {PROVIDERS.map((p) => (
+      <ClaudeCodeSection
+        settings={settings}
+        active={settings.provider === 'claude-code'}
+        onChange={(s) => {
+          onChange(s)
+          onSaved()
+        }}
+        onSave={save}
+      />
+
+      {API_PROVIDERS.map((p) => (
         <ProviderSection
           key={p}
           provider={p}
@@ -96,8 +114,123 @@ export function Settings({ settings, onChange, onSaved }: Props) {
   )
 }
 
+const CLAUDE_MODELS = [
+  { id: 'opus', label: 'Opus — mais preciso, gasta mais cota' },
+  { id: 'sonnet', label: 'Sonnet — equilibrado' },
+  { id: 'haiku', label: 'Haiku — rápido e econômico' }
+]
+
+const pct = (v: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`)
+
+function ClaudeCodeSection(props: {
+  settings: SettingsView
+  active: boolean
+  onChange: (s: SettingsView) => void
+  onSave: (patch: Partial<SettingsView>) => void
+}) {
+  const { settings } = props
+  const st = settings.claudeCode
+  const [checking, setChecking] = useState(false)
+  const [path, setPath] = useState(settings.claudeCodePath)
+  const [showPath, setShowPath] = useState(!!settings.claudeCodePath || (!st.path && !!st.error))
+
+  const recheck = async () => {
+    setChecking(true)
+    try {
+      props.onChange(await api.getSettings(true))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const ready = !!st.path && st.loggedIn
+  return (
+    <section className="card">
+      <h2>
+        {PROVIDER_LABEL['claude-code']} {props.active && <span className="badge ia">em uso</span>}
+      </h2>
+      <p className="muted small">
+        Usa a sua assinatura do Claude, sem chave de API: o app roda o <strong>Claude Code</strong> instalado neste
+        computador, que já está logado na sua conta. O uso entra na cota da assinatura. Vale para uso pessoal, no seu
+        computador.
+      </p>
+
+      {ready ? (
+        <p className="status-ok">
+          ✓ Conectado como {st.email ?? 'conta Claude'}
+          {st.plan && ` (plano ${st.plan})`}
+          <span className="small muted"> · Claude Code {st.version}</span>
+        </p>
+      ) : (
+        <div className="notice">
+          <div>{st.error}</div>
+          {!st.path ? (
+            <div className="small">
+              Instale o Claude Code e faça login com a sua conta:
+              <pre className="cmd">
+                {navigator.platform.startsWith('Win')
+                  ? 'irm https://claude.ai/install.ps1 | iex\nclaude'
+                  : 'curl -fsSL https://claude.ai/install.sh | bash\nclaude'}
+              </pre>
+              Dentro do Claude Code, use <code>/login</code> e entre com a conta da assinatura. Se ele já estiver
+              instalado em outro lugar, informe o caminho abaixo.
+            </div>
+          ) : (
+            <div className="small">
+              Abra um terminal, rode <code>claude</code> e use <code>/login</code> com a conta da sua assinatura.
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="field">
+        <label>Modelo</label>
+        <div className="row">
+          <select value={settings.claudeCodeModel} onChange={(e) => props.onSave({ claudeCodeModel: e.target.value })}>
+            {CLAUDE_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <button onClick={recheck} disabled={checking}>
+            {checking ? 'Verificando…' : 'Verificar'}
+          </button>
+        </div>
+      </div>
+
+      {st.usage && (
+        <p className="small muted">
+          Uso da assinatura na última busca: {pct(st.usage.fiveHour)} da janela de 5 horas, {pct(st.usage.sevenDay)} da
+          semanal
+          {st.usage.resetsAt && ` · janela de 5 h renova às ${new Date(st.usage.resetsAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+          .
+        </p>
+      )}
+
+      {showPath ? (
+        <div className="field">
+          <label>Caminho do Claude Code</label>
+          <div className="row">
+            <input
+              placeholder={st.path ?? 'detectar automaticamente'}
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+            />
+            <button onClick={() => props.onSave({ claudeCodePath: path.trim() })}>Salvar</button>
+          </div>
+        </div>
+      ) : (
+        <button className="link small" onClick={() => setShowPath(true)}>
+          Informar o caminho do executável manualmente
+        </button>
+      )}
+    </section>
+  )
+}
+
 function ProviderSection(props: {
-  provider: ProviderId
+  provider: ApiProviderId
   settings: SettingsView
   active: boolean
   onChange: (s: SettingsView) => void

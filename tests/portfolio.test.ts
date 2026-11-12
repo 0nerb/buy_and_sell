@@ -69,3 +69,19 @@ describe('carteiras recomendadas', () => {
     expect(p.entries[0].institutions).toEqual(['XP'])
   })
 })
+
+describe('nomes de instituições', () => {
+  it('"XP" e "XP Investimentos" são a mesma instituição', () => {
+    const p = buildConsolidated(
+      [
+        carteira('XP Investimentos', '2026-11-01', ['PETR4'], 'Top Ações'),
+        carteira('XP', '2026-11-01', ['PETR4'], 'Dividendos'),
+        carteira('BTG Pactual Research', '2026-11-01', ['PETR4'])
+      ],
+      DEFAULT_SETTINGS,
+      now
+    )
+    expect(p.institutionsTracked).toBe(2)
+    expect(p.entries[0].institutions.sort()).toEqual(['BTG Pactual', 'XP'])
+  })
+})

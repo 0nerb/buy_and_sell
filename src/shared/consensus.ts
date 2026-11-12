@@ -1,3 +1,4 @@
+import { canonicalInstitution } from './institutions'
 import { ratingValue } from './ratings'
 import type { Action, Consensus, ConsensusSource, Report, Settings } from './types'
 
@@ -30,7 +31,7 @@ export function activeReports(reports: Report[], now: Date): Report[] {
       result.push(r)
       continue
     }
-    const key = `${r.institution.trim().toLowerCase()}|${r.portfolioName.trim().toLowerCase()}`
+    const key = `${canonicalInstitution(r.institution).toLowerCase()}|${r.portfolioName.trim().toLowerCase()}`
     const cur = latestPortfolio.get(key)
     if (!cur || r.reportDate > cur.reportDate) latestPortfolio.set(key, r)
   }
@@ -55,7 +56,7 @@ export function buildConsensus(reports: Report[], settings: Settings, now = new 
     const age = ageInDays(report.reportDate, now)
     if (age > settings.maxAgeDays) continue
     const weight = Math.pow(0.5, age / settings.halfLifeDays)
-    const institution = report.institution.trim() || 'Desconhecida'
+    const institution = canonicalInstitution(report.institution) || 'Desconhecida'
     const instKey = institution.toLowerCase()
 
     for (const call of report.calls) {

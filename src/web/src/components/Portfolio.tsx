@@ -50,7 +50,7 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
         <div>
           <h2>Busca automática de carteiras recomendadas</h2>
           <p className="muted small">
-            Usando {PROVIDER_LABEL[settings.provider]}, a IA pesquisa na web as carteiras do mês de{' '}
+            Com {PROVIDER_LABEL[settings.provider]}, a IA pesquisa na web as carteiras do mês de{' '}
             {settings.trackedInstitutions.length} instituições e as adiciona aos seus relatórios.{' '}
             <button className="link" onClick={onOpenSettings}>
               Alterar
@@ -65,7 +65,7 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
         </div>
         {!settings.aiReady && (
           <p className="small status-erro">
-            Configure a chave de API do {PROVIDER_LABEL[settings.provider]} para usar a busca.
+            Conecte o provedor de IA ({PROVIDER_LABEL[settings.provider]}) nas Configurações para usar a busca.
           </p>
         )}
         {progress && (

@@ -1,4 +1,5 @@
 import { activeReports, buildConsensus } from './consensus'
+import { canonicalInstitution } from './institutions'
 import type { Consensus, ConsolidatedPortfolio, Report, Settings } from './types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -33,7 +34,7 @@ export function buildConsolidated(reports: Report[], settings: Settings, now = n
   const institutions = new Set(
     activeReports(reports, now)
       .filter((r) => r.reportDate >= minDate)
-      .map((r) => r.institution.trim().toLowerCase())
+      .map((r) => canonicalInstitution(r.institution).toLowerCase())
   )
 
   const totalVotes = current.reduce((s, c) => s + c.buyCount, 0)

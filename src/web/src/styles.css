@@ -170,3 +170,13 @@ td.wrap { white-space: normal; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; }
 .chip button.link { color: var(--muted); font-size: 15px; line-height: 1; }
+
+pre.cmd {
+  margin: 8px 0; padding: 8px 10px; border-radius: 6px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap;
+}
+code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+.row select { flex: 1; min-width: 0; }
+.row button { flex: 0 0 auto; }
+.field > * { min-width: 0; }
