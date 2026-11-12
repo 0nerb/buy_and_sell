@@ -4,8 +4,7 @@ import type {
   ImportResult,
   ProviderId,
   Report,
-  SearchProgress,
-  SearchResult,
+  SearchJob,
   Settings,
   SettingsView
 } from '@shared/types'
@@ -64,24 +63,16 @@ export const api = {
   },
   getConsensus: () => request<Consensus[]>('GET', '/consensus'),
   getPortfolio: () => request<ConsolidatedPortfolio>('GET', '/portfolio'),
-  /** Inicia a busca e repassa o progresso; devolve null se a busca falhar. */
-  searchPortfolios: async (month: string, onProgress: (p: SearchProgress) => void): Promise<SearchResult | null> => {
-    const res = await fetch('/api/search', {
-      method: 'POST',
-      headers: { ...HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ month })
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => null)
-      onProgress({ stage: 'erro', message: data?.error ?? `Erro ${res.status} ao iniciar a busca.` })
-      return null
-    }
-    let result: SearchResult | null = null
+  /** Situação da busca de carteiras (null se nenhuma foi feita desde que o servidor subiu). */
+  getSearch: () => request<SearchJob | null>('GET', '/search'),
+  startSearch: (month: string) => request<SearchJob>('POST', '/search', { month }),
+  /** Acompanha a busca em andamento até ela terminar (ou até `signal` abortar). */
+  watchSearch: async (onJob: (job: SearchJob) => void, signal: AbortSignal): Promise<void> => {
+    const res = await fetch('/api/search/events', { headers: HEADERS, signal })
+    if (!res.ok) throw new Error(`Erro ${res.status} ao acompanhar a busca.`)
     await readSSE(res, (event, data) => {
-      if (event === 'progress') onProgress(JSON.parse(data))
-      else if (event === 'result') result = JSON.parse(data)
+      if (event === 'job') onJob(JSON.parse(data))
     })
-    return result
   },
   listModels: (provider: ProviderId) => request<string[]>('GET', `/models/${provider}`),
   getSettings: (refresh = false) => request<SettingsView>('GET', `/settings${refresh ? '?refresh=1' : ''}`),

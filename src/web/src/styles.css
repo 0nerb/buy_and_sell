@@ -180,3 +180,37 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; back
 .row select { flex: 1; min-width: 0; }
 .row button { flex: 0 0 auto; }
 .field > * { min-width: 0; }
+
+/* ---------- Indicador global da busca ---------- */
+.search-indicator { position: relative; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; }
+.search-indicator.running { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.search-indicator.done { background: var(--buy-bg); color: var(--buy); }
+.search-indicator.failed { background: var(--sell-bg); color: var(--sell); }
+.search-indicator-body { display: flex; align-items: center; gap: 10px; padding: 8px 20px; min-width: 0; }
+.search-indicator .search-step { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.search-indicator.done .search-step, .search-indicator.failed .search-step { color: inherit; opacity: .85; }
+.search-indicator .search-time { font-variant-numeric: tabular-nums; color: var(--muted); }
+.search-indicator .close { font-size: 18px; line-height: 1; color: inherit; }
+.search-indicator button.link { white-space: nowrap; }
+
+/* barra de progresso indeterminada no topo da faixa */
+.indeterminate { position: absolute; top: 0; left: 0; right: 0; height: 3px; overflow: hidden; background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.indeterminate::before {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 35%; background: var(--accent); border-radius: 2px;
+  animation: indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes indeterminate { from { left: -35%; } to { left: 100%; } }
+
+.spinner {
+  display: inline-block; width: 14px; height: 14px; flex: 0 0 auto;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px;
+}
+.spinner.light { border-color: rgba(255,255,255,.35); border-top-color: #fff; width: 12px; height: 12px; }
+.spinner.nav { width: 10px; height: 10px; margin-left: 6px; border-width: 2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .indeterminate::before { animation: none; left: 0; width: 100%; opacity: .6; }
+  .spinner { animation-duration: 2.4s; }
+}

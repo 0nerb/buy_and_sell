@@ -212,3 +212,14 @@ export interface ConsolidatedPortfolio {
   /** Estavam na carteira de 30 dias atrás e saíram. */
   removed: { ticker: string; company: string | null }[]
 }
+
+/** Situação da busca de carteiras (uma por vez), mantida pelo servidor. */
+export interface SearchJob {
+  month: string
+  startedAt: string
+  /** null enquanto a busca está em andamento. */
+  finishedAt: string | null
+  /** Última etapa informada (stage 'ok' ou 'erro' quando terminou). */
+  progress: SearchProgress
+  result: SearchResult | null
+}

@@ -1,46 +1,21 @@
-import { useEffect, useState } from 'react'
-import { PROVIDER_LABEL, type ConsolidatedPortfolio, type SearchProgress, type SettingsView } from '@shared/types'
-import { api } from '../api'
+import { useState } from 'react'
+import { PROVIDER_LABEL, type ConsolidatedPortfolio, type SettingsView } from '@shared/types'
 import { fmtMoney, fmtPct } from '../format'
+import { monthName, type SearchState } from '../useSearch'
 
 interface Props {
   portfolio: ConsolidatedPortfolio | null
   settings: SettingsView
-  onChange: () => void
+  search: SearchState
   onOpenSettings: () => void
 }
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 
-export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Props) {
+export function Portfolio({ portfolio, settings, search, onOpenSettings }: Props) {
   const [month, setMonth] = useState(currentMonth())
-  const [progress, setProgress] = useState<SearchProgress | null>(null)
-  const [running, setRunning] = useState(false)
-  const [notFound, setNotFound] = useState<string[]>([])
-  const [elapsed, setElapsed] = useState(0)
-
-  useEffect(() => {
-    if (!running) return
-    const start = Date.now()
-    const t = setInterval(() => setElapsed(Math.round((Date.now() - start) / 1000)), 1000)
-    return () => clearInterval(t)
-  }, [running])
-
-  const run = async () => {
-    setRunning(true)
-    setElapsed(0)
-    setNotFound([])
-    setProgress({ stage: 'pesquisando', message: 'Iniciando…' })
-    try {
-      const result = await api.searchPortfolios(month, setProgress)
-      if (result) setNotFound(result.notFound)
-    } catch (e) {
-      setProgress({ stage: 'erro', message: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setRunning(false)
-      onChange()
-    }
-  }
+  const { job, running } = search
+  const notFound = job?.finishedAt ? (job.result?.notFound ?? []) : []
 
   const entries = portfolio?.entries ?? []
 
@@ -51,16 +26,29 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
           <h2>Busca automática de carteiras recomendadas</h2>
           <p className="muted small">
             Com {PROVIDER_LABEL[settings.provider]}, a IA pesquisa na web as carteiras do mês de{' '}
-            {settings.trackedInstitutions.length} instituições e as adiciona aos seus relatórios.{' '}
+            {settings.trackedInstitutions.length} instituições e as adiciona aos seus relatórios. Leva alguns minutos;
+            você pode usar as outras abas enquanto isso.{' '}
             <button className="link" onClick={onOpenSettings}>
               Alterar
             </button>
           </p>
         </div>
         <div className="row">
-          <input type="month" value={month} max={currentMonth()} onChange={(e) => setMonth(e.target.value)} />
-          <button className="primary" onClick={run} disabled={running || !settings.aiReady}>
-            {running ? `Buscando… ${elapsed}s` : 'Buscar carteiras'}
+          <input
+            type="month"
+            value={month}
+            max={currentMonth()}
+            disabled={running}
+            onChange={(e) => setMonth(e.target.value)}
+          />
+          <button className="primary" onClick={() => search.start(month)} disabled={running || !settings.aiReady}>
+            {running ? (
+              <>
+                <span className="spinner light" aria-hidden /> Buscando {monthName(job!.month)}…
+              </>
+            ) : (
+              'Buscar carteiras'
+            )}
           </button>
         </div>
         {!settings.aiReady && (
@@ -68,13 +56,12 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
             Conecte o provedor de IA ({PROVIDER_LABEL[settings.provider]}) nas Configurações para usar a busca.
           </p>
         )}
-        {progress && (
-          <p className={`small status-${progress.stage === 'erro' ? 'erro' : progress.stage === 'ok' ? 'ok' : 'processando'}`}>
-            {progress.message}
-            {running && ' (pode levar alguns minutos)'}
+        {search.startError && <p className="small status-erro">{search.startError}</p>}
+        {notFound.length > 0 && (
+          <p className="small muted">
+            Sem carteira encontrada em {monthName(job!.month)}: {notFound.join(', ')}
           </p>
         )}
-        {notFound.length > 0 && <p className="small muted">Sem carteira encontrada: {notFound.join(', ')}</p>}
       </div>
 
       {entries.length === 0 ? (

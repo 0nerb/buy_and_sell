@@ -10,7 +10,7 @@ import { buildConsolidated } from '@shared/portfolio'
 import type { ProviderId, Settings } from '@shared/types'
 import { AIError, createProvider } from './ai'
 import { ImportError, importPdf } from './importer'
-import { searchPortfolios } from './search'
+import { currentJob, isRunning, startSearch, subscribe } from './searchJob'
 import {
   DATA_DIR,
   deleteReport,
@@ -124,26 +124,38 @@ app.get('/pdf/:id', async (c) => {
 app.get('/api/consensus', (c) => c.json(buildConsensus(getReports(), getSettings())))
 app.get('/api/portfolio', (c) => c.json(buildConsolidated(getReports(), getSettings())))
 
-let searching = false
+app.get('/api/search', (c) => c.json(currentJob()))
+
 app.post('/api/search', async (c) => {
   const { month } = await c.req.json<{ month: string }>()
   if (!/^\d{4}-\d{2}$/.test(month ?? '')) throw new HttpError(400, 'Mês inválido.')
-  if (searching) throw new HttpError(409, 'Já existe uma busca em andamento.')
-  searching = true
-  // Server-Sent Events: o navegador recebe o progresso enquanto a IA pesquisa.
-  return streamSSE(c, async (stream) => {
-    try {
-      const result = await searchPortfolios(month, (p) => stream.writeSSE({ event: 'progress', data: JSON.stringify(p) }))
-      await stream.writeSSE({ event: 'result', data: JSON.stringify(result) })
-    } catch (err) {
-      const message = err instanceof AIError ? err.message : `Falha na busca: ${err instanceof Error ? err.message : err}`
-      if (!(err instanceof AIError)) console.error(err)
-      await stream.writeSSE({ event: 'progress', data: JSON.stringify({ stage: 'erro', message }) })
-    } finally {
-      searching = false
-    }
-  })
+  if (isRunning()) throw new HttpError(409, 'Já existe uma busca em andamento.')
+  return c.json(startSearch(month), 202)
 })
+
+// Server-Sent Events: manda a situação atual e cada atualização até a busca terminar.
+app.get('/api/search/events', (c) =>
+  streamSSE(c, async (stream) => {
+    const job = currentJob()
+    if (!job) return
+    await stream.writeSSE({ event: 'job', data: JSON.stringify(job) })
+    if (job.finishedAt) return
+    await new Promise<void>((resolve) => {
+      const unsubscribe = subscribe((j) => {
+        stream.writeSSE({ event: 'job', data: JSON.stringify(j) }).catch(() => {})
+        if (j.finishedAt) done()
+      })
+      // Mantém a conexão viva em proxies e detecta quem fechou a aba.
+      const ping = setInterval(() => stream.writeSSE({ event: 'ping', data: '' }).catch(() => {}), 15_000)
+      function done() {
+        clearInterval(ping)
+        unsubscribe()
+        resolve()
+      }
+      stream.onAbort(done)
+    })
+  })
+)
 
 // ---------- Configurações ----------
 app.get('/api/models/:provider', async (c) => {

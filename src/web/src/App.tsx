@@ -12,7 +12,9 @@ import { ImportPanel } from './components/ImportPanel'
 import { Portfolio } from './components/Portfolio'
 import { Recommendations } from './components/Recommendations'
 import { Reports } from './components/Reports'
+import { SearchIndicator } from './components/SearchIndicator'
 import { Settings } from './components/Settings'
+import { useSearch } from './useSearch'
 
 type Tab = 'carteira' | 'recomendacoes' | 'relatorios' | 'config'
 
@@ -46,6 +48,9 @@ export function App() {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  // A busca vive aqui (não na aba Carteira) para o indicador sobreviver à troca de abas.
+  const search = useSearch(refresh)
 
   const update = (p: ImportProgress) =>
     setProgress((prev) => (prev.some((x) => x.key === p.key) ? prev.map((x) => (x.key === p.key ? p : x)) : [...prev, p]))
@@ -118,6 +123,7 @@ export function App() {
         <nav>
           <button className={tab === 'carteira' ? 'active' : ''} onClick={() => setTab('carteira')}>
             Carteira consolidada
+            {search.running && <span className="spinner nav" aria-label="buscando" />}
           </button>
           <button className={tab === 'recomendacoes' ? 'active' : ''} onClick={() => setTab('recomendacoes')}>
             Recomendações
@@ -149,6 +155,8 @@ export function App() {
         </div>
       </header>
 
+      <SearchIndicator search={search} onOpen={() => setTab('carteira')} onPortfolioTab={tab === 'carteira'} />
+
       <main>
         {serverError && (
           <div className="notice">
@@ -172,7 +180,7 @@ export function App() {
         )}
 
         {tab === 'carteira' && settings && (
-          <Portfolio portfolio={portfolio} settings={settings} onChange={refresh} onOpenSettings={() => setTab('config')} />
+          <Portfolio portfolio={portfolio} settings={settings} search={search} onOpenSettings={() => setTab('config')} />
         )}
         {tab === 'recomendacoes' && <Recommendations consensus={consensus} onImport={pick} />}
         {tab === 'relatorios' && <Reports reports={reports} onChange={refresh} onImport={pick} />}
