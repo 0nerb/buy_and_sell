@@ -18,7 +18,7 @@ export function ImportPanel({ items, busy, onClose }: { items: ImportProgress[];
       </header>
       <ul>
         {items.map((p) => (
-          <li key={p.filePath} title={p.message}>
+          <li key={p.key} title={p.message}>
             <span className={`status-${p.status}`}>{ICON[p.status]}</span>
             <span className="name">{p.fileName}</span>
             <span className={`small status-${p.status}`}>{p.status === 'processando' ? 'lendo…' : p.message}</span>

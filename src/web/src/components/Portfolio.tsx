@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PROVIDER_LABEL, type ConsolidatedPortfolio, type SearchProgress, type SettingsView } from '@shared/types'
+import { api } from '../api'
 import { fmtMoney, fmtPct } from '../format'
 
 interface Props {
@@ -18,8 +19,6 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
   const [notFound, setNotFound] = useState<string[]>([])
   const [elapsed, setElapsed] = useState(0)
 
-  useEffect(() => window.api.onSearchProgress(setProgress), [])
-
   useEffect(() => {
     if (!running) return
     const start = Date.now()
@@ -33,10 +32,10 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
     setNotFound([])
     setProgress({ stage: 'pesquisando', message: 'Iniciando…' })
     try {
-      const result = await window.api.searchPortfolios(month)
-      setNotFound(result.notFound)
-    } catch {
-      // a mensagem de erro já chega pelo evento de progresso
+      const result = await api.searchPortfolios(month, setProgress)
+      if (result) setNotFound(result.notFound)
+    } catch (e) {
+      setProgress({ stage: 'erro', message: e instanceof Error ? e.message : String(e) })
     } finally {
       setRunning(false)
       onChange()
@@ -51,7 +50,7 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
         <div>
           <h2>Busca automática de carteiras recomendadas</h2>
           <p className="muted small">
-            A IA ({PROVIDER_LABEL[settings.provider]}) pesquisa na web as carteiras do mês de{' '}
+            Usando {PROVIDER_LABEL[settings.provider]}, a IA pesquisa na web as carteiras do mês de{' '}
             {settings.trackedInstitutions.length} instituições e as adiciona aos seus relatórios.{' '}
             <button className="link" onClick={onOpenSettings}>
               Alterar
@@ -86,8 +85,10 @@ export function Portfolio({ portfolio, settings, onChange, onOpenSettings }: Pro
       ) : (
         <>
           <p className="muted">
-            As {entries.length} ações mais recomendadas para compra entre {portfolio!.institutionsTracked} instituição(ões)
-            acompanhada(s). Peso proporcional ao número de indicações.
+            {entries.length === 1 ? 'A ação mais recomendada' : `As ${entries.length} ações mais recomendadas`} para compra
+            entre {portfolio!.institutionsTracked}{' '}
+            {portfolio!.institutionsTracked === 1 ? 'instituição acompanhada' : 'instituições acompanhadas'}. Peso
+            proporcional ao número de indicações.
           </p>
           <div className="card">
             <table>

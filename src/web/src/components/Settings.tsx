@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { api } from '../api'
 import { DEFAULT_INSTITUTIONS, PROVIDER_LABEL, type ProviderId, type SettingsView } from '@shared/types'
 
 interface Props {
@@ -32,7 +33,7 @@ const SUGGESTED_MODELS: Record<ProviderId, string[]> = {
 
 export function Settings({ settings, onChange, onSaved }: Props) {
   const save = async (patch: Partial<SettingsView>) => {
-    onChange(await window.api.saveSettings(patch))
+    onChange(await api.saveSettings(patch))
     onSaved()
   }
 
@@ -42,7 +43,7 @@ export function Settings({ settings, onChange, onSaved }: Props) {
         <h2>Provedor de IA</h2>
         <p className="muted">
           A IA lê os PDFs e faz a busca automática de carteiras. Você pode cadastrar as duas chaves e alternar quando
-          quiser.
+          quiser. As chaves ficam só no seu computador (data/secrets.json) e nunca são enviadas ao navegador.
         </p>
         <div className="field">
           <label>Usar</label>
@@ -117,11 +118,11 @@ function ProviderSection(props: {
     setLoading(true)
     setStatus('')
     try {
-      const list = await window.api.listModels(provider)
+      const list = await api.listModels(provider)
       if (list.length) setModels(list)
       setStatus(list.length ? `${list.length} modelos disponíveis na sua conta.` : '')
     } catch (e) {
-      setStatus(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e))
+      setStatus(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
@@ -134,7 +135,7 @@ function ProviderSection(props: {
   }, [source])
 
   const saveKey = async (value: string | null) => {
-    props.onChange(await window.api.setApiKey(provider, value))
+    props.onChange(await api.setApiKey(provider, value))
     setKey('')
     setStatus(value ? 'Chave salva.' : 'Chave removida.')
   }
@@ -188,9 +189,6 @@ function ProviderSection(props: {
         </div>
       </div>
       {status && <p className="small muted">{status}</p>}
-      {!settings.canPersistKey && (
-        <p className="small muted">Este sistema não oferece armazenamento seguro: a chave vale só até fechar o app.</p>
-      )}
     </section>
   )
 }

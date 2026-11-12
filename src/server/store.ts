@@ -1,6 +1,5 @@
-import { app, safeStorage } from 'electron'
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import {
   DEFAULT_SETTINGS,
   type ApiKeySource,
@@ -11,11 +10,15 @@ import {
 } from '@shared/types'
 
 /**
- * Persistência simples em JSON dentro da pasta de dados do app
- * (macOS: ~/Library/Application Support/Recomendação, Windows: %APPDATA%\Recomendação).
+ * Persistência simples em JSON na pasta de dados (padrão: ./data,
+ * ou a variável de ambiente RECOMENDACAO_DATA_DIR).
  */
 
-const file = (name: string) => join(app.getPath('userData'), name)
+export const DATA_DIR = resolve(process.env.RECOMENDACAO_DATA_DIR ?? 'data')
+export const PDF_DIR = join(DATA_DIR, 'pdfs')
+mkdirSync(PDF_DIR, { recursive: true })
+
+const file = (name: string) => join(DATA_DIR, name)
 
 function readJson<T>(name: string, fallback: T): T {
   try {
@@ -28,10 +31,11 @@ function readJson<T>(name: string, fallback: T): T {
 }
 
 /** Grava em arquivo temporário e renomeia, para não corromper o JSON se o app fechar no meio. */
-function writeJson(name: string, data: unknown): void {
+function writeJson(name: string, data: unknown, mode = 0o644): void {
   const tmp = file(`${name}.tmp`)
-  writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8')
+  writeFileSync(tmp, JSON.stringify(data, null, 2), { encoding: 'utf8', mode })
   renameSync(tmp, file(name))
+  chmodSync(file(name), mode)
 }
 
 // ---------- Relatórios ----------
@@ -73,52 +77,27 @@ export function saveSettings(patch: Partial<Settings>): Settings {
 }
 
 // ---------- Chaves de API ----------
-// Criptografadas com o cofre do SO (Keychain no macOS, DPAPI no Windows).
+// Ficam em data/secrets.json, legível só pelo seu usuário (chmod 600).
+// O servidor só escuta em 127.0.0.1, então elas nunca chegam ao navegador.
 
-type Secrets = Partial<Record<ProviderId, string>> & { apiKey?: string }
+type Secrets = Partial<Record<ProviderId, string>>
 
 const ENV_VARS: Record<ProviderId, string[]> = {
   anthropic: ['ANTHROPIC_API_KEY'],
   gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY']
 }
 
-/** Chaves digitadas nesta sessão (usadas também quando o SO não tem cofre). */
-const sessionKeys: Partial<Record<ProviderId, string | null>> = {}
-
-function readSecrets(): Secrets {
-  const s = readJson<Secrets>('secrets.json', {})
-  // v0.1 tinha uma única chave (Anthropic) em "apiKey".
-  if (s.apiKey && !s.anthropic) s.anthropic = s.apiKey
-  delete s.apiKey
-  return s
-}
-
 export function setApiKey(provider: ProviderId, key: string | null): void {
-  const trimmed = key?.trim() || null
-  sessionKeys[provider] = trimmed
-  const secrets = readSecrets()
-  if (!trimmed) delete secrets[provider]
-  else if (safeStorage.isEncryptionAvailable()) {
-    secrets[provider] = safeStorage.encryptString(trimmed).toString('base64')
-  }
-  writeJson('secrets.json', secrets)
+  const secrets = readJson<Secrets>('secrets.json', {})
+  const trimmed = key?.trim()
+  if (trimmed) secrets[provider] = trimmed
+  else delete secrets[provider]
+  writeJson('secrets.json', secrets, 0o600)
 }
 
 export function getApiKey(provider: ProviderId): { key: string | null; source: ApiKeySource } {
-  const session = sessionKeys[provider]
-  if (session) return { key: session, source: 'salva' }
-  if (session === undefined) {
-    const stored = readSecrets()[provider]
-    if (stored && safeStorage.isEncryptionAvailable()) {
-      try {
-        const key = safeStorage.decryptString(Buffer.from(stored, 'base64'))
-        sessionKeys[provider] = key
-        return { key, source: 'salva' }
-      } catch (err) {
-        console.error('Não foi possível descriptografar a chave salva:', err)
-      }
-    }
-  }
+  const stored = readJson<Secrets>('secrets.json', {})[provider]
+  if (stored) return { key: stored, source: 'salva' }
   for (const name of ENV_VARS[provider]) {
     if (process.env[name]) return { key: process.env[name]!, source: 'ambiente' }
   }
@@ -131,10 +110,5 @@ export function getSettingsView(): SettingsView {
     anthropic: getApiKey('anthropic').source,
     gemini: getApiKey('gemini').source
   }
-  return {
-    ...settings,
-    keys,
-    aiReady: keys[settings.provider] !== null,
-    canPersistKey: safeStorage.isEncryptionAvailable()
-  }
+  return { ...settings, keys, aiReady: keys[settings.provider] !== null }
 }

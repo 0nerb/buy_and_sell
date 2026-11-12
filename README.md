@@ -1,6 +1,6 @@
 # Recomendação
 
-App desktop (macOS e Windows) que lê relatórios de research de bancos e corretoras — BTG Pactual, XP, Itaú BBA, Bradesco BBI, Safra etc. — e consolida tudo em uma lista de ações para **comprar**, **manter** ou **vender**.
+App web local que lê relatórios de research de bancos e corretoras — BTG Pactual, XP, Itaú BBA, Bradesco BBI, Safra etc. — e consolida tudo em uma lista de ações para **comprar**, **manter** ou **vender**.
 
 > Ferramenta pessoal de organização. Não é recomendação de investimento.
 
@@ -42,42 +42,42 @@ As duas chaves podem ficar cadastradas e você alterna o provedor nas Configura�
 - Relatórios com mais de 120 dias são ignorados; cada recomendação pesa `0,5^(idade/45 dias)`.
 - Score = média ponderada (compra = +1, neutro = 0, venda = −1). ≥ 0,4 → **Comprar**; ≤ −0,4 → **Vender**; senão **Manter**.
 
-## Desenvolvimento
+## Como rodar
 
-Requer Node.js 22+ (testado com 24).
+Requer [Node.js](https://nodejs.org) 22 ou mais novo (Mac, Windows ou Linux).
 
 ```bash
 npm install
-npm run dev        # abre o app com hot reload
-npm test           # testes unitários (vitest)
+npm start          # gera a interface e abre o servidor em http://localhost:3000
+```
+
+Depois é só abrir **http://localhost:3000** no navegador. O servidor escuta apenas em `127.0.0.1`: ninguém na sua rede consegue acessar.
+
+As chaves de API podem ser coladas em **Configurações** (ficam em `data/secrets.json`, legível só pelo seu usuário) ou definidas num arquivo `.env` na raiz do projeto:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=AIza...
+# PORT=3000                       # porta do servidor
+# RECOMENDACAO_DATA_DIR=./data    # onde ficam relatórios, PDFs e configurações
+```
+
+### Desenvolvimento
+
+```bash
+npm run dev        # servidor com reload + interface com hot reload em http://localhost:5173
+npm test           # testes (vitest)
 npm run typecheck
 ```
 
-As chaves de API são coladas em **Configurações** (ficam criptografadas pelo Keychain no macOS ou pela DPAPI no Windows) ou vêm das variáveis de ambiente da tabela acima.
-
-**No WSL/Linux**, o Electron precisa de algumas bibliotecas do sistema:
-
-```bash
-sudo apt install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgtk-3-0 libgbm1 libasound2t64
-```
-
-## Gerando os instaladores
-
-```bash
-npm run dist:mac   # .dmg (arm64 e x64) — precisa rodar em um Mac
-npm run dist:win   # instalador .exe (NSIS) — mais fácil rodar no Windows
-```
-
-Os arquivos saem em `dist/`. O workflow [.github/workflows/build.yml](.github/workflows/build.yml) gera os dois automaticamente no GitHub Actions a cada push na `main` (baixe em *Actions → execução → Artifacts*).
-
-O app ainda **não é assinado**. No macOS, abra pela primeira vez com botão direito → *Abrir*. No Windows, o SmartScreen vai avisar; clique em *Mais informações → Executar assim mesmo*.
+O GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) roda typecheck, testes e build a cada push.
 
 ## Estrutura
 
 ```
 src/
-  main/            processo principal do Electron (Node)
-    index.ts       janela + handlers IPC
+  server/          servidor local (Node + Hono)
+    index.ts       rotas HTTP /api + interface compilada
     importer.ts    pipeline de importação de um PDF
     pdf.ts         extração de texto (unpdf / pdf.js)
     search.ts      busca mensal de carteiras recomendadas
@@ -88,13 +88,13 @@ src/
       gemini.ts    provedor Gemini
     extract/
       heuristic.ts extração offline por regex
-  preload/         ponte segura main ↔ interface (window.api)
-  renderer/        interface React
+  web/             interface React (Vite)
+    src/api.ts     cliente HTTP da API local
   shared/          tipos, ratings, consenso e carteira consolidada
 tests/             testes (vitest) + PDF de exemplo
 ```
 
-Os dados ficam em `reports.json`, `settings.json` e `secrets.json` dentro da pasta de dados do app (`~/Library/Application Support/Recomendação` no macOS, `%APPDATA%\Recomendação` no Windows).
+Os dados ficam na pasta `data/` (fora do git): `reports.json`, `settings.json`, `secrets.json` e as cópias dos PDFs importados em `data/pdfs/`. Para fazer backup, basta copiar essa pasta.
 
 ## Ideias para as próximas versões
 
@@ -104,4 +104,4 @@ Os dados ficam em `reports.json`, `settings.json` e `secrets.json` dentro da pas
 - Histórico de mudanças de rating por ação (upgrade/downgrade)
 - Cruzar com a sua carteira atual e destacar o que vender
 - Exportar a lista para CSV/Excel
-- Assinatura de código (Apple Developer ID / certificado Windows) e atualização automática
+- Hospedar num servidor (com login) para acessar de qualquer lugar

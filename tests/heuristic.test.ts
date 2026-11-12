@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectDate, extractHeuristic, parseBrazilianNumber } from '../src/main/extract/heuristic'
+import { detectDate, extractHeuristic, parseBrazilianNumber } from '../src/server/extract/heuristic'
 
 const SAMPLE = `BTG Pactual Research — Bancos
 São Paulo, 10 de novembro de 2026

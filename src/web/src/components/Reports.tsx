@@ -1,19 +1,19 @@
 import { Fragment, useState } from 'react'
 import type { Report } from '@shared/types'
+import { api } from '../api'
 import { fmtDate, fmtMoney, ratingLabel } from '../format'
 
 interface Props {
   reports: Report[]
   onChange: () => void
   onImport: () => void
-  runImport: (fn: () => Promise<unknown>) => Promise<void>
 }
 
 function EditRow({ report, onDone }: { report: Report; onDone: () => void }) {
   const [institution, setInstitution] = useState(report.institution)
   const [reportDate, setReportDate] = useState(report.reportDate)
   const save = async () => {
-    await window.api.updateReport(report.id, { institution, reportDate })
+    await api.updateReport(report.id, { institution, reportDate })
     onDone()
   }
   return (
@@ -28,7 +28,8 @@ function EditRow({ report, onDone }: { report: Report; onDone: () => void }) {
   )
 }
 
-export function Reports({ reports, onChange, onImport, runImport }: Props) {
+export function Reports({ reports, onChange, onImport }: Props) {
+  const [busy, setBusy] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +39,7 @@ export function Reports({ reports, onChange, onImport, runImport }: Props) {
     try {
       await fn()
     } catch (e) {
-      setError(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e))
+      setError(e instanceof Error ? e.message : String(e))
     }
     onChange()
   }
@@ -47,7 +48,7 @@ export function Reports({ reports, onChange, onImport, runImport }: Props) {
     return (
       <div className="empty">
         <h2>Nenhum relatório importado</h2>
-        <p>Os PDFs ficam onde estão; o app guarda só as recomendações extraídas.</p>
+        <p>Arraste PDFs para esta página ou use o botão Importar PDFs.</p>
         <button className="primary" onClick={onImport}>
           Importar PDFs
         </button>
@@ -94,17 +95,26 @@ export function Reports({ reports, onChange, onImport, runImport }: Props) {
                     <div className="row" style={{ justifyContent: 'flex-end' }}>
                       <button
                         disabled={r.source === 'web' && !r.sourceUrl}
-                        onClick={() => act(() => window.api.openReport(r.id))}
+                        onClick={() => api.openReport(r)}
                       >
                         {r.source === 'web' ? 'Fonte' : 'Abrir'}
                       </button>
                       <button onClick={() => setEditing(r.id)}>Editar</button>
                       {r.source !== 'web' && (
-                        <button onClick={() => runImport(() => act(() => window.api.reprocessReport(r.id)))}>Reprocessar</button>
+                        <button
+                          disabled={busy === r.id}
+                          onClick={async () => {
+                            setBusy(r.id)
+                            await act(() => api.reprocessReport(r.id))
+                            setBusy(null)
+                          }}
+                        >
+                          {busy === r.id ? 'Lendo…' : 'Reprocessar'}
+                        </button>
                       )}
                       <button
                         className="danger"
-                        onClick={() => confirm(`Remover "${r.fileName}"?`) && act(() => window.api.deleteReport(r.id))}
+                        onClick={() => confirm(`Remover "${r.fileName}"?`) && act(() => api.deleteReport(r.id))}
                       >
                         Remover
                       </button>

@@ -37,6 +37,7 @@ export interface Report {
   /** SHA-256 do arquivo — evita importar o mesmo PDF duas vezes. */
   id: string
   fileName: string
+  /** Cópia do PDF na pasta de dados ('' para carteiras da web). */
   filePath: string
   institution: string
   /** Data de publicação (YYYY-MM-DD). */
@@ -137,21 +138,17 @@ export interface SettingsView extends Settings {
   keys: Record<ProviderId, ApiKeySource>
   /** true quando o fornecedor ativo tem chave — ou seja, dá para usar IA. */
   aiReady: boolean
-  /** false quando o SO não oferece cofre de credenciais (a chave fica só em memória). */
-  canPersistKey: boolean
 }
 
 export interface ImportProgress {
-  filePath: string
+  /** Identificador local do arquivo na fila de importação. */
+  key: string
   fileName: string
   status: 'processando' | 'ok' | 'duplicado' | 'erro'
   message?: string
 }
 
-export interface ImportResult {
-  imported: Report[]
-  errors: { fileName: string; message: string }[]
-}
+export type ImportResult = { status: 'ok'; report: Report } | { status: 'duplicado' }
 
 export interface SearchProgress {
   stage: 'pesquisando' | 'organizando' | 'ok' | 'erro'

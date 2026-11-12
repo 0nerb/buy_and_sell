@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
-import { extractHeuristic } from '../src/main/extract/heuristic'
-import { pdfToText } from '../src/main/pdf'
+import { extractHeuristic } from '../src/server/extract/heuristic'
+import { pdfToText } from '../src/server/pdf'
 
 it('lê um PDF real e extrai as recomendações pela heurística', async () => {
   const pdf = readFileSync(join(__dirname, 'fixtures/exemplo-btg.pdf'))

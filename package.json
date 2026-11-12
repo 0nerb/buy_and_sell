@@ -2,23 +2,23 @@
   "name": "recomendacao",
   "productName": "Recomendação",
   "version": "0.1.0",
-  "description": "Lê relatórios de research de bancos/corretoras e consolida recomendações de compra e venda de ações.",
-  "main": "./out/main/index.js",
+  "description": "App web local que lê relatórios de research de bancos/corretoras e consolida recomendações de compra e venda de ações.",
   "author": "Breno Kern",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "dev": "concurrently -k -n server,web -c blue,green \"tsx watch --tsconfig tsconfig.node.json --env-file-if-exists=.env src/server/index.ts --dev\" \"vite\"",
+    "build": "vite build",
+    "start": "vite build && tsx --tsconfig tsconfig.node.json --env-file-if-exists=.env src/server/index.ts",
+    "serve": "tsx --tsconfig tsconfig.node.json --env-file-if-exists=.env src/server/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run",
-    "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:win": "electron-vite build && electron-builder --win",
-    "postinstall": "node node_modules/electron/install.js && electron-builder install-app-deps"
+    "test": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
     "@google/genai": "^3.2.0",
+    "@hono/node-server": "^2.1.8",
+    "hono": "^4.13.18",
     "unpdf": "^2.1.0",
     "zod": "^4.6.7"
   },
@@ -27,16 +27,19 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
-    "electron": "^45.3.1",
-    "electron-builder": "^26.18.0",
-    "electron-vite": "^6.0.0",
+    "concurrently": "^10.0.7",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "allowScripts": {
-    "electron-winstaller@5.4.0": true
+    "esbuild@0.28.2": true
   }
 }
