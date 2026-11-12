@@ -14,8 +14,15 @@ export interface AIProvider {
   id: ProviderId
   /** Lê um relatório (PDF) e devolve as recomendações estruturadas. */
   extractReport(pdf: Buffer, fallbackText: () => Promise<string>): Promise<ExtractedReport>
-  /** Pesquisa na web e devolve um texto corrido com o que achou + URLs consultadas. */
-  research(prompt: string, onStatus: (msg: string) => void): Promise<ResearchOutput>
+  /**
+   * Pesquisa na web e devolve o texto completo + URLs consultadas.
+   * `onText` recebe o texto à medida que é escrito (para gravar cada carteira na hora);
+   * `onSource` recebe cada URL que a ferramenta de busca/leitura realmente trouxe.
+   */
+  research(
+    prompt: string,
+    hooks: { onStatus: (msg: string) => void; onText: (chunk: string) => void; onSource: (url: string, title: string) => void }
+  ): Promise<ResearchOutput>
   /** Converte texto livre em JSON seguindo o schema (sem acesso à web). */
   structure(system: string, input: string, schema: object): Promise<unknown>
   listModels(): Promise<string[]>
@@ -149,13 +156,15 @@ Como pesquisar:
 - Considere carteiras de ações em geral (ex.: "Carteira Recomendada", "Top 10", "Carteira Dividendos", "Small Caps"). Ignore carteiras de FIIs, renda fixa, fundos e BDRs.
 - Se não encontrar a carteira de ${monthLabel(month)} de alguma instituição, use a mais recente que encontrar e informe a data dela. Se não encontrar nenhuma, diga explicitamente.
 
-Na resposta, para CADA carteira encontrada, informe:
-- instituição e nome da carteira;
-- mês de referência e data de publicação;
-- todos os ativos (ticker, empresa e peso em %, se houver);
-- a URL exata da página onde você leu a informação.
-
-Liste apenas o que você leu nas páginas. Nunca complete uma carteira de memória.`
+Formato da resposta — MUITO IMPORTANTE:
+Assim que terminar de ler uma página e identificar uma carteira, escreva IMEDIATAMENTE, antes de continuar pesquisando, um bloco assim (JSON numa linha só, um bloco por carteira):
+<carteira>{"institution": "XP", "portfolioName": "Top 10 Ações", "referenceMonth": "${month}", "publishedDate": "${month}-03", "sourceUrl": "https://url-exata-da-pagina-lida", "assets": [{"ticker": "PETR4", "company": "Petrobras", "weight": 0.1}]}</carteira>
+- "weight" é a fração do peso (10% -> 0.1) ou null; "company" e "publishedDate" (YYYY-MM-DD) podem ser null.
+- "sourceUrl" é a URL da página onde você leu a carteira.
+- Inclua todos os ativos da carteira. Liste apenas o que você leu nas páginas; nunca complete uma carteira de memória.
+- Se depois achar uma versão mais completa da mesma carteira, escreva o bloco de novo (ele substitui o anterior).
+Ao final, liste as instituições sem carteira encontrada:
+<nao_encontradas>["Instituição A", "Instituição B"]</nao_encontradas>`
 }
 
 export const STRUCTURE_PROMPT = `Você recebe as anotações de uma pesquisa sobre carteiras recomendadas de ações e deve convertê-las em JSON.
@@ -204,18 +213,71 @@ export const PORTFOLIOS_SCHEMA = {
   }
 }
 
-export const PortfoliosSchema = z.object({
-  portfolios: z.array(
+export const PortfolioSchema = z.object({
+  institution: z.string().min(1),
+  portfolioName: z.string().min(1),
+  referenceMonth: z.string(),
+  publishedDate: z.string().nullable().optional().transform((v) => v ?? null),
+  sourceUrl: z.string().nullable().optional().transform((v) => v ?? null),
+  assets: z.array(
     z.object({
-      institution: z.string(),
-      portfolioName: z.string(),
-      referenceMonth: z.string(),
-      publishedDate: z.string().nullable(),
-      sourceUrl: z.string().nullable(),
-      assets: z.array(z.object({ ticker: z.string(), company: z.string().nullable(), weight: z.number().nullable() }))
+      ticker: z.string(),
+      company: z.string().nullable().optional().transform((v) => v ?? null),
+      weight: z.number().nullable().optional().transform((v) => v ?? null)
     })
-  ),
+  )
+})
+
+export type FoundPortfolio = z.infer<typeof PortfolioSchema>
+
+export const PortfoliosSchema = z.object({
+  portfolios: z.array(PortfolioSchema),
   notFound: z.array(z.string())
 })
 
-export type FoundPortfolios = z.infer<typeof PortfoliosSchema>
+/**
+ * Lê o texto da pesquisa à medida que ele chega e entrega cada
+ * <carteira>{...}</carteira> assim que o bloco fecha — é isso que permite
+ * gravar cada carteira no banco sem esperar a pesquisa inteira terminar.
+ */
+export class PortfolioStreamParser {
+  private buffer = ''
+  private notFoundList: string[] | null = null
+  /** Blocos que vieram com JSON inválido (para diagnóstico). */
+  invalid = 0
+
+  constructor(private onPortfolio: (p: FoundPortfolio) => void) {}
+
+  push(chunk: string): void {
+    this.buffer += chunk
+    for (;;) {
+      const m = this.buffer.match(/<carteira>([\s\S]*?)<\/carteira>/)
+      if (!m) break
+      this.buffer = this.buffer.slice(m.index! + m[0].length)
+      const parsed = PortfolioSchema.safeParse(safeJson(m[1]))
+      if (parsed.success) this.onPortfolio(parsed.data)
+      else this.invalid++
+    }
+    const nf = this.buffer.match(/<nao_encontradas>([\s\S]*?)<\/nao_encontradas>/)
+    if (nf) {
+      const list = z.array(z.string()).safeParse(safeJson(nf[1]))
+      if (list.success) this.notFoundList = list.data
+      this.buffer = this.buffer.slice(nf.index! + nf[0].length)
+    }
+    // Evita crescer sem limite com texto livre entre os blocos.
+    const open = this.buffer.lastIndexOf('<')
+    if (this.buffer.length > 20_000 && open < this.buffer.length - 20_000) this.buffer = this.buffer.slice(-20_000)
+  }
+
+  get notFound(): string[] {
+    return this.notFoundList ?? []
+  }
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text.trim())
+  } catch {
+    return null
+  }
+}

@@ -244,7 +244,7 @@ export function createClaudeCodeProvider(bin: string, model: string): AIProvider
         return parseExtraction(JSON.stringify(out))
       }),
 
-    research: (prompt, onStatus) =>
+    research: (prompt, { onStatus, onText, onSource }) =>
       inTempDir(async (dir): Promise<ResearchOutput> => {
         const sources = new Map<string, string>()
         let searches = 0
@@ -277,13 +277,20 @@ export function createClaudeCodeProvider(bin: string, model: string): AIProvider
                 if (block.name === 'WebFetch' && input.url) {
                   onStatus(`Lendo ${input.url}`)
                   sources.set(input.url, input.url)
+                  onSource(input.url, input.url)
                 }
+              }
+              // Texto entre uma ferramenta e outra: é aqui que chegam os blocos <carteira>.
+              if (ev.type === 'assistant' && block.type === 'text' && typeof block.text === 'string') {
+                onText(block.text + '\n')
               }
               if (ev.type === 'user' && block.type === 'tool_result') {
                 // Resultado do WebSearch: "Links: [{"title": ..., "url": ...}, ...]"
                 const text = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
                 for (const m of text.matchAll(/"title":\s*"((?:[^"\\]|\\.)*)",\s*"url":\s*"([^"]+)"/g)) {
-                  sources.set(m[2], JSON.parse(`"${m[1]}"`))
+                  const title = JSON.parse(`"${m[1]}"`)
+                  sources.set(m[2], title)
+                  onSource(m[2], title)
                 }
               }
             }

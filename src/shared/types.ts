@@ -221,5 +221,7 @@ export interface SearchJob {
   finishedAt: string | null
   /** Última etapa informada (stage 'ok' ou 'erro' quando terminou). */
   progress: SearchProgress
+  /** Carteiras já gravadas no banco nesta busca (atualiza durante a busca). */
+  saved: number
   result: SearchResult | null
 }

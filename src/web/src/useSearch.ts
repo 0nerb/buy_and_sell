@@ -7,25 +7,29 @@ import { api } from './api'
  * tela), para o indicador continuar visível ao trocar de aba. Ao abrir ou
  * recarregar a página, reconecta a uma busca que já esteja rodando no servidor.
  */
-export function useSearch(onFinished: () => void) {
+export function useSearch(onDataChanged: () => void) {
   const [job, setJob] = useState<SearchJob | null>(null)
   /** Busca cujo aviso de conclusão a pessoa já fechou (ou que terminou antes de abrir a página). */
   const [dismissed, setDismissed] = useState<string | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
   const watching = useRef<AbortController | null>(null)
-  const finishedRef = useRef(onFinished)
-  finishedRef.current = onFinished
+  const finishedRef = useRef(onDataChanged)
+  finishedRef.current = onDataChanged
 
   const watch = useCallback(async () => {
     watching.current?.abort()
     const ctrl = new AbortController()
     watching.current = ctrl
     let last: SearchJob | null = null
+    let savedSeen = -1
     for (let attempt = 0; attempt < 5 && !ctrl.signal.aborted; attempt++) {
       try {
         await api.watchSearch((j) => {
           last = j
           setJob(j)
+          // Cada carteira é gravada durante a busca: atualiza as telas na hora.
+          if (savedSeen >= 0 && j.saved > savedSeen) finishedRef.current()
+          savedSeen = j.saved
         }, ctrl.signal)
       } catch {
         if (ctrl.signal.aborted) return

@@ -214,3 +214,4 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; back
   .indeterminate::before { animation: none; left: 0; width: 100%; opacity: .6; }
   .spinner { animation-duration: 2.4s; }
 }
+.search-indicator .search-saved { background: var(--buy-bg); color: var(--buy); padding: 1px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }

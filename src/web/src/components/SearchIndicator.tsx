@@ -30,6 +30,11 @@ export function SearchIndicator({ search, onOpen, onPortfolioTab }: {
           <span className="spinner" aria-hidden />
           <strong>Buscando carteiras de {monthName(job.month)}</strong>
           <span className="search-step">{job.progress.message}</span>
+          {job.saved > 0 && (
+            <span className="search-saved">
+              {job.saved} {job.saved === 1 ? 'carteira salva' : 'carteiras salvas'}
+            </span>
+          )}
           <span className="search-time">{elapsed(job.startedAt)}</span>
           {!onPortfolioTab && (
             <button className="link" onClick={onOpen}>

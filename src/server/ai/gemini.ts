@@ -63,27 +63,49 @@ export function createGeminiProvider(apiKey: string, model: string): AIProvider 
       return parseExtraction(checkFinish(res))
     },
 
-    async research(prompt, onStatus): Promise<ResearchOutput> {
+    async research(prompt, { onStatus, onText, onSource }): Promise<ResearchOutput> {
       onStatus('Pesquisando com Google Search…')
-      let res: GenerateContentResponse
+      const sources = new Map<string, string>()
+      let text = ''
+      let last: GenerateContentResponse | null = null
       try {
-        res = await ai.models.generateContent({
+        // Em streaming: cada carteira é gravada assim que o Gemini termina de escrevê-la.
+        const stream = await ai.models.generateContentStream({
           model,
           contents: prompt,
           config: { tools: [{ googleSearch: {} }, { urlContext: {} }], maxOutputTokens: 64000 }
         })
+        for await (const chunk of stream) {
+          last = chunk
+          if (chunk.promptFeedback?.blockReason) throw new AIError('O Gemini bloqueou este pedido por política de conteúdo.')
+          const candidate = chunk.candidates?.[0]
+          for (const g of candidate?.groundingMetadata?.groundingChunks ?? []) {
+            if (g.web?.uri && !sources.has(g.web.uri)) {
+              sources.set(g.web.uri, g.web.title ?? g.web.uri)
+              onSource(g.web.uri, g.web.title ?? g.web.uri)
+            }
+          }
+          for (const meta of candidate?.urlContextMetadata?.urlMetadata ?? []) {
+            if (meta.retrievedUrl && !sources.has(meta.retrievedUrl)) {
+              sources.set(meta.retrievedUrl, meta.retrievedUrl)
+              onSource(meta.retrievedUrl, meta.retrievedUrl)
+              onStatus(`Lendo ${meta.retrievedUrl}`)
+            }
+          }
+          const piece = chunk.text
+          if (piece) {
+            text += piece
+            onText(piece)
+          }
+        }
       } catch (err) {
+        if (err instanceof AIError) throw err
         translateError(err)
       }
-      const text = checkFinish(res)
-      const candidate = res.candidates?.[0]
-      const sources = new Map<string, string>()
-      for (const chunk of candidate?.groundingMetadata?.groundingChunks ?? []) {
-        if (chunk.web?.uri) sources.set(chunk.web.uri, chunk.web.title ?? chunk.web.uri)
-      }
-      for (const meta of candidate?.urlContextMetadata?.urlMetadata ?? []) {
-        if (meta.retrievedUrl) sources.set(meta.retrievedUrl, meta.retrievedUrl)
-      }
+      const reason = last?.candidates?.[0]?.finishReason
+      if (reason === 'MAX_TOKENS') throw new AIError('A resposta da IA foi cortada por ser longa demais.')
+      if (reason === 'SAFETY' || reason === 'RECITATION') throw new AIError('O Gemini interrompeu a resposta por política de conteúdo.')
+      if (!text) throw new AIError('O Gemini não retornou resposta.')
       return { text, sources: [...sources].map(([url, title]) => ({ url, title })) }
     },
 

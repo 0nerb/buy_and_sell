@@ -69,7 +69,7 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
       return parseExtraction(textOf(message))
     },
 
-    async research(prompt, onStatus): Promise<ResearchOutput> {
+    async research(prompt, { onStatus, onText, onSource }): Promise<ResearchOutput> {
       const tools: Anthropic.Beta.BetaToolUnion[] = [
         { type: 'web_search_20260209', name: 'web_search', max_uses: 30 },
         { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 30 }
@@ -90,8 +90,19 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
             tools,
             messages
           })
+          // Texto chega aos pedaços: cada carteira é gravada assim que o bloco dela fecha.
+          stream.on('text', (delta) => onText(delta))
           stream.on('contentBlock', (block) => {
-            if (block.type === 'server_tool_use' && block.name === 'web_search') {
+            if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
+              for (const r of block.content) {
+                sources.set(r.url, r.title)
+                onSource(r.url, r.title)
+              }
+            } else if (block.type === 'web_fetch_tool_result' && block.content.type === 'web_fetch_result') {
+              const title = block.content.content.title ?? block.content.url
+              sources.set(block.content.url, title)
+              onSource(block.content.url, title)
+            } else if (block.type === 'server_tool_use' && block.name === 'web_search') {
               searches++
               const query = (block.input as { query?: string }).query
               onStatus(`Pesquisa ${searches}${query ? `: "${query}"` : ''}`)
@@ -106,13 +117,7 @@ export function createAnthropicProvider(apiKey: string, model: string): AIProvid
         }
 
         for (const block of message.content) {
-          if (block.type === 'web_search_tool_result' && Array.isArray(block.content)) {
-            for (const r of block.content) sources.set(r.url, r.title)
-          } else if (block.type === 'web_fetch_tool_result' && block.content.type === 'web_fetch_result') {
-            sources.set(block.content.url, block.content.content.title ?? block.content.url)
-          } else if (block.type === 'text') {
-            texts.push(block.text)
-          }
+          if (block.type === 'text') texts.push(block.text)
         }
 
         if (message.stop_reason === 'pause_turn') {
