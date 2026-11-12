@@ -53,14 +53,14 @@ export const api = {
   listReports: () => request<Report[]>('GET', '/reports'),
   importFile: (file: File) =>
     request<ImportResult>('POST', `/reports?name=${encodeURIComponent(file.name)}`, file, 'application/pdf'),
-  reprocessReport: (id: string) => request<ImportResult>('POST', `/reports/${id}/reprocess`),
-  updateReport: (id: string, patch: Pick<Report, 'institution' | 'reportDate'>) =>
+  /** Relê um relatório: como o PDF não fica guardado, a pessoa escolhe o arquivo de novo. */
+  rereadReport: (id: string, file: File) => request<ImportResult>('POST', `/reports/${id}/reread`, file, 'application/pdf'),
+  updateReport: (id: string, patch: { institution: string; reportDate: string; sourceUrl: string | null }) =>
     request<void>('PATCH', `/reports/${id}`, patch),
   deleteReport: (id: string) => request<void>('DELETE', `/reports/${id}`),
-  /** Abre o PDF (ou a página de origem, para carteiras da web) numa aba nova. */
+  /** Abre o link do relatório numa aba nova (o PDF em si não é guardado). */
   openReport: (report: Report) => {
-    const url = report.source === 'web' ? report.sourceUrl : `/pdf/${report.id}`
-    if (url && (url.startsWith('/') || /^https?:\/\//.test(url))) window.open(url, '_blank', 'noopener')
+    if (report.sourceUrl && /^https?:\/\//.test(report.sourceUrl)) window.open(report.sourceUrl, '_blank', 'noopener')
   },
   getConsensus: () => request<Consensus[]>('GET', '/consensus'),
   getPortfolio: () => request<ConsolidatedPortfolio>('GET', '/portfolio'),

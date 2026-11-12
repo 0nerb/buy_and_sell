@@ -70,7 +70,6 @@ function toReport(p: FoundPortfolio, month: string, provider: ProviderId, verifi
   return {
     id: createHash('sha256').update(`web|${institution}|${p.portfolioName}|${refMonth}`.toLowerCase()).digest('hex'),
     fileName: `${p.portfolioName} — ${monthLabel(refMonth)}`,
-    filePath: '',
     institution,
     reportDate,
     title: p.portfolioName,

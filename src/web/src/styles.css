@@ -220,3 +220,14 @@ code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; back
 .prices-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .prices-bar button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 td sup { color: var(--muted); }
+
+.edit-form { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+.key-points-title { margin: 12px 0 4px; font-size: 13px; }
+.key-points { margin: 0 0 12px; padding-left: 20px; white-space: normal; }
+.key-points li { margin: 3px 0; }
+a { color: var(--accent); }
+/* Texto livre dentro das linhas expandidas quebra linha (as células da tabela usam nowrap). */
+.details-inner { white-space: normal; }
+.details-inner p { max-width: 1000px; }
+.wrap { white-space: normal; }
+.details .details-inner table td, .details .details-inner table th { padding: 5px 12px 5px 0; }

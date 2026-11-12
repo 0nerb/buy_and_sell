@@ -18,8 +18,7 @@ import {
  */
 
 export const DATA_DIR = resolve(process.env.RECOMENDACAO_DATA_DIR ?? 'data')
-export const PDF_DIR = join(DATA_DIR, 'pdfs')
-mkdirSync(PDF_DIR, { recursive: true })
+mkdirSync(DATA_DIR, { recursive: true })
 
 const file = (name: string) => join(DATA_DIR, name)
 

@@ -6,7 +6,7 @@ const now = new Date('2026-11-12T12:00:00Z')
 
 function report(id: string, institution: string, reportDate: string, calls: [string, Rating, number?, number?][]): Report {
   return {
-    id, institution, reportDate, fileName: `${id}.pdf`, filePath: `/tmp/${id}.pdf`, title: '', summary: '',
+    id, institution, reportDate, fileName: `${id}.pdf`, title: '', summary: '',
     importedAt: now.toISOString(), method: 'ia',
     calls: calls.map(([ticker, rating, targetPrice, priceAtReport]) => ({
       ticker, rating, company: null, originalRating: rating, targetPrice: targetPrice ?? null,

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -88,22 +89,33 @@ app.post('/api/reports', async (c) => {
   return c.json(result)
 })
 
-app.post('/api/reports/:id/reprocess', async (c) => {
+// "Reler PDF": o arquivo não fica guardado, então a pessoa envia de novo.
+// Precisa ser o mesmo arquivo (mesmo conteúdo) do relatório escolhido.
+app.post('/api/reports/:id/reread', async (c) => {
   const report = findReport(c.req.param('id'))
-  if (!report.filePath || !existsSync(report.filePath)) {
-    throw new HttpError(409, 'O PDF original não está na pasta de dados. Importe-o novamente.')
+  if (report.source === 'web') throw new HttpError(400, 'Carteiras da web não vêm de PDF.')
+  const data = Buffer.from(await c.req.arrayBuffer())
+  if (createHash('sha256').update(data).digest('hex') !== report.id) {
+    throw new HttpError(409, `Este não é o mesmo arquivo do relatório "${report.fileName}".`)
   }
-  return c.json(await importPdf(report.fileName, await readFile(report.filePath), true))
+  const result = await importPdf(report.fileName, data, true)
+  if (result.status === 'ok') refreshMissingInBackground()
+  return c.json(result)
 })
 
 app.patch('/api/reports/:id', async (c) => {
   const report = findReport(c.req.param('id'))
-  const body = await c.req.json<{ institution?: string; reportDate?: string }>()
+  const body = await c.req.json<{ institution?: string; reportDate?: string; sourceUrl?: string | null }>()
   if (body.reportDate && !/^\d{4}-\d{2}-\d{2}$/.test(body.reportDate)) throw new HttpError(400, 'Data inválida.')
+  const url = body.sourceUrl?.trim()
+  if (url && !/^https?:\/\/\S+$/.test(url)) throw new HttpError(400, 'O link precisa começar com http:// ou https://')
   saveReport({
     ...report,
     institution: body.institution?.trim() || report.institution,
-    reportDate: body.reportDate || report.reportDate
+    reportDate: body.reportDate || report.reportDate,
+    sourceUrl: body.sourceUrl === undefined ? report.sourceUrl : url || null,
+    // Link trocado à mão deixa de ser "verificado pela busca".
+    sourceVerified: body.sourceUrl === undefined || url === report.sourceUrl ? report.sourceVerified : false
   })
   return c.json({ ok: true })
 })
@@ -113,15 +125,6 @@ app.delete('/api/reports/:id', (c) => {
   return c.json({ ok: true })
 })
 
-// O PDF é aberto numa aba nova; essa navegação não manda o cabeçalho x-recomendacao,
-// então a rota fica fora de /api. Só serve arquivos de relatórios conhecidos.
-app.get('/pdf/:id', async (c) => {
-  const report = findReport(c.req.param('id'))
-  if (!report.filePath || !existsSync(report.filePath)) throw new HttpError(404, 'PDF não encontrado.')
-  c.header('Content-Type', 'application/pdf')
-  c.header('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(report.fileName)}`)
-  return c.body(await readFile(report.filePath))
-})
 
 // ---------- Consenso e carteira ----------
 app.get('/api/consensus', (c) => c.json(buildConsensus(getReports(), getSettings(), new Date(), getQuotes())))

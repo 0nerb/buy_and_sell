@@ -20,7 +20,7 @@ A **carteira consolidada** mostra as N ações (10 por padrão) com mais institu
 
 ### 2. Importação de PDFs (aba *Relatórios*)
 
-Para relatórios da área logada dos bancos: arraste os PDFs para a janela. O app guarda só as recomendações extraídas; o mesmo arquivo não é importado duas vezes.
+Para relatórios da área logada dos bancos: arraste os PDFs para a janela. **O PDF não é guardado**: o app lê o arquivo, extrai as informações e descarta o documento. Ficam salvos só a instituição, a data, o resumo, os **pontos principais**, as recomendações (ticker, rating, preço-alvo e tese) e o **link** do relatório: o que aparecer no próprio PDF ou o que você informar em *Editar*. Para ler um relatório de novo, use *Reler PDF* e escolha o mesmo arquivo. O mesmo arquivo não é importado duas vezes.
 - **Com chave de API:** o PDF inteiro vai para a IA, que devolve ticker, rating, preço-alvo, tese, instituição e data.
 - **Sem chave:** uma heurística local procura tickers da B3 e o rating mais próximo. Serve para relatórios simples, mas erra com facilidade.
 
@@ -105,7 +105,7 @@ src/
 tests/             testes (vitest) + PDF de exemplo
 ```
 
-Os dados ficam na pasta `data/` (fora do git): `reports.json`, `settings.json`, `secrets.json` e as cópias dos PDFs importados em `data/pdfs/`. Para fazer backup, basta copiar essa pasta.
+Os dados ficam na pasta `data/` (fora do git): `reports.json`, `settings.json`, `prices.json` e `secrets.json`. Para fazer backup, basta copiar essa pasta.
 
 ## Ideias para as próximas versões
 

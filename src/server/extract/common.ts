@@ -6,6 +6,9 @@ export interface ExtractedReport {
   reportDate: string
   title: string
   summary: string
+  keyPoints: string[]
+  /** Link do relatório, se aparecer no próprio documento. */
+  sourceUrl: string | null
   calls: StockCall[]
 }
 

@@ -118,6 +118,8 @@ export function extractHeuristic(text: string): ExtractedReport {
     reportDate: detectDate(text),
     title: firstLine.slice(0, 140),
     summary: '',
+    keyPoints: [],
+    sourceUrl: null,
     calls: dedupeCalls(calls)
   }
 }

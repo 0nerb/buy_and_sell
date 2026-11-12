@@ -8,7 +8,7 @@ const now = new Date('2026-11-12T12:00:00Z')
 function carteira(institution: string, reportDate: string, tickers: string[], portfolioName = 'Carteira Recomendada'): Report {
   return {
     id: `${institution}-${portfolioName}-${reportDate}`,
-    institution, reportDate, portfolioName, source: 'web', fileName: '', filePath: '', title: portfolioName,
+    institution, reportDate, portfolioName, source: 'web', fileName: '', title: portfolioName,
     summary: '', importedAt: now.toISOString(), method: 'ia',
     calls: tickers.map((ticker) => ({
       ticker, rating: 'compra' as const, company: null, originalRating: 'Carteira', targetPrice: null,

@@ -47,14 +47,15 @@ export type ReportSource = 'pdf' | 'web'
 export interface Report {
   /** SHA-256 do arquivo — evita importar o mesmo PDF duas vezes. */
   id: string
+  /** Nome do PDF importado (o arquivo em si não é guardado). */
   fileName: string
-  /** Cópia do PDF na pasta de dados ('' para carteiras da web). */
-  filePath: string
   institution: string
   /** Data de publicação (YYYY-MM-DD). */
   reportDate: string
   title: string
   summary: string
+  /** Pontos principais do relatório (o documento não fica salvo). */
+  keyPoints?: string[]
   importedAt: string
   method: ExtractionMethod
   /** Qual IA leu o relatório (quando method = 'ia'). */
@@ -67,6 +68,7 @@ export interface Report {
    * um ativo que saiu da carteira deixa de ser recomendado.
    */
   portfolioName?: string | null
+  /** Link do relatório: página da carteira, link citado no PDF ou informado por você. */
   sourceUrl?: string | null
   /** true quando a URL apareceu de fato nos resultados da busca. */
   sourceVerified?: boolean

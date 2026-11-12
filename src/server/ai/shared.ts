@@ -52,6 +52,8 @@ Regras:
 - "institution": nome da instituição que publicou o relatório.
 - "reportDate": data de publicação no formato YYYY-MM-DD. Se não houver, use null.
 - "summary": 2 a 3 frases em português resumindo o relatório.
+- "keyPoints": de 3 a 6 pontos principais do relatório, em português, cada um com uma frase curta e objetiva (teses, números e riscos mais relevantes). O documento original não será guardado, então registre aqui o que vale lembrar.
+- "sourceUrl": o link deste relatório se ele aparecer no documento (ex.: "acesse em https://..."); senão null. Não invente links.
 - Se o relatório não tiver nenhuma recomendação de ações, retorne "calls" vazio.`
 
 export const EXTRACTION_USER_MESSAGE = 'Extraia as recomendações deste relatório.'
@@ -61,12 +63,14 @@ const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type:
 export const EXTRACTION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['institution', 'reportDate', 'title', 'summary', 'calls'],
+  required: ['institution', 'reportDate', 'title', 'summary', 'keyPoints', 'sourceUrl', 'calls'],
   properties: {
     institution: { type: 'string' },
     reportDate: nullable({ type: 'string' }),
     title: { type: 'string' },
     summary: { type: 'string' },
+    keyPoints: { type: 'array', items: { type: 'string' } },
+    sourceUrl: nullable({ type: 'string' }),
     calls: {
       type: 'array',
       items: {
@@ -97,6 +101,8 @@ const ExtractionSchema = z.object({
   reportDate: z.string().nullable(),
   title: z.string(),
   summary: z.string(),
+  keyPoints: z.array(z.string()).optional().transform((v) => v ?? []),
+  sourceUrl: z.string().nullable().optional().transform((v) => v ?? null),
   calls: z.array(
     z.object({
       ticker: z.string(),
@@ -125,6 +131,8 @@ export function parseExtraction(raw: string): ExtractedReport {
     reportDate: parsed.reportDate && /^\d{4}-\d{2}-\d{2}$/.test(parsed.reportDate) ? parsed.reportDate : '',
     title: parsed.title,
     summary: parsed.summary,
+    keyPoints: parsed.keyPoints.map((k) => k.trim()).filter(Boolean).slice(0, 8),
+    sourceUrl: parsed.sourceUrl && /^https?:\/\//.test(parsed.sourceUrl) ? parsed.sourceUrl : null,
     calls: dedupeCalls(
       parsed.calls.map((c) => ({
         ...c,

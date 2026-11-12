@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import type { Report } from '@shared/types'
 import { api } from '../api'
 import { fmtDate, fmtMoney, ratingLabel } from '../format'
@@ -12,20 +12,46 @@ interface Props {
 function EditRow({ report, onDone }: { report: Report; onDone: () => void }) {
   const [institution, setInstitution] = useState(report.institution)
   const [reportDate, setReportDate] = useState(report.reportDate)
+  const [sourceUrl, setSourceUrl] = useState(report.sourceUrl ?? '')
+  const [error, setError] = useState<string | null>(null)
   const save = async () => {
-    await api.updateReport(report.id, { institution, reportDate })
-    onDone()
+    setError(null)
+    try {
+      await api.updateReport(report.id, { institution, reportDate, sourceUrl: sourceUrl.trim() || null })
+      onDone()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
   return (
-    <div className="row">
-      <input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="Instituição" />
-      <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} style={{ flex: 0 }} />
-      <button className="primary" onClick={save}>
-        Salvar
-      </button>
-      <button onClick={onDone}>Cancelar</button>
+    <div className="edit-form">
+      <div className="row">
+        <input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="Instituição" />
+        <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} style={{ flex: 0 }} />
+      </div>
+      <div className="row">
+        <input
+          type="url"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          placeholder="Link do relatório (ex.: página do banco onde ele foi publicado)"
+        />
+        <button className="primary" onClick={save}>
+          Salvar
+        </button>
+        <button onClick={onDone}>Cancelar</button>
+      </div>
+      {error && <p className="small status-erro">{error}</p>}
     </div>
   )
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }
 
 export function Reports({ reports, onChange, onImport }: Props) {
@@ -33,6 +59,16 @@ export function Reports({ reports, onChange, onImport }: Props) {
   const [open, setOpen] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const rereadInput = useRef<HTMLInputElement>(null)
+  const rereadTarget = useRef<Report | null>(null)
+
+  const reread = async (file: File) => {
+    const r = rereadTarget.current
+    if (!r) return
+    setBusy(r.id)
+    await act(() => api.rereadReport(r.id, file))
+    setBusy(null)
+  }
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null)
@@ -59,6 +95,21 @@ export function Reports({ reports, onChange, onImport }: Props) {
   return (
     <>
       {error && <div className="notice">{error}</div>}
+      <p className="small muted">
+        Os PDFs não ficam guardados: o app salva só as informações extraídas (resumo, pontos principais e
+        recomendações) e o link de cada relatório.
+      </p>
+      <input
+        ref={rereadInput}
+        type="file"
+        accept="application/pdf,.pdf"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file) reread(file)
+        }}
+      />
       <div className="card">
         <table>
           <thead>
@@ -79,7 +130,16 @@ export function Reports({ reports, onChange, onImport }: Props) {
                   <td>{r.institution}</td>
                   <td className="wrap">
                     <div>{r.title || r.fileName}</div>
-                    <div className="small muted">{r.source === 'web' ? r.sourceUrl ?? 'sem URL de origem' : r.fileName}</div>
+                    <div className="small muted">
+                      {r.source !== 'web' && `${r.fileName} · `}
+                      {r.sourceUrl ? (
+                        <a href={r.sourceUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                          {hostOf(r.sourceUrl)}
+                        </a>
+                      ) : (
+                        'sem link'
+                      )}
+                    </div>
                   </td>
                   <td className="num">{r.calls.length}</td>
                   <td>
@@ -94,22 +154,23 @@ export function Reports({ reports, onChange, onImport }: Props) {
                   <td className="num" onClick={(e) => e.stopPropagation()}>
                     <div className="row" style={{ justifyContent: 'flex-end' }}>
                       <button
-                        disabled={r.source === 'web' && !r.sourceUrl}
+                        disabled={!r.sourceUrl}
+                        title={r.sourceUrl ? r.sourceUrl : 'Sem link — adicione em Editar'}
                         onClick={() => api.openReport(r)}
                       >
-                        {r.source === 'web' ? 'Fonte' : 'Abrir'}
+                        Abrir link
                       </button>
                       <button onClick={() => setEditing(r.id)}>Editar</button>
                       {r.source !== 'web' && (
                         <button
                           disabled={busy === r.id}
-                          onClick={async () => {
-                            setBusy(r.id)
-                            await act(() => api.reprocessReport(r.id))
-                            setBusy(null)
+                          title="O PDF não fica guardado: escolha o mesmo arquivo para lê-lo de novo"
+                          onClick={() => {
+                            rereadTarget.current = r
+                            rereadInput.current?.click()
                           }}
                         >
-                          {busy === r.id ? 'Lendo…' : 'Reprocessar'}
+                          {busy === r.id ? 'Lendo…' : 'Reler PDF'}
                         </button>
                       )}
                       <button
@@ -141,6 +202,16 @@ export function Reports({ reports, onChange, onImport }: Props) {
                     <td colSpan={6}>
                       <div className="details-inner">
                         {r.summary && <p className="wrap">{r.summary}</p>}
+                        {r.keyPoints && r.keyPoints.length > 0 && (
+                          <>
+                            <h4 className="key-points-title">Pontos principais</h4>
+                            <ul className="key-points">
+                              {r.keyPoints.map((k, i) => (
+                                <li key={i}>{k}</li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
                         {r.calls.length === 0 ? (
                           <p className="muted">Nenhuma recomendação de ação encontrada neste relatório.</p>
                         ) : (
