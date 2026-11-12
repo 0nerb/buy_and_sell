@@ -12,9 +12,7 @@ O app tem duas formas de coletar recomendações, e as duas alimentam o mesmo co
 
 Um clique em **Buscar carteiras** faz a IA pesquisar na web as carteiras recomendadas do mês das instituições acompanhadas (XP, BTG, Itaú BBA, Bradesco BBI, Santander, Safra, Genial, BB Investimentos, Ágora e Inter por padrão — editável nas Configurações). Ela procura nos sites oficiais e nas compilações mensais da imprensa (InfoMoney, Money Times etc.).
 
-Funciona em duas etapas, iguais para qualquer provedor ([src/main/search.ts](src/main/search.ts)):
-1. **Pesquisa:** o modelo usa a busca na web (Claude: `web_search`/`web_fetch`; Gemini: Google Search + URL context) e escreve anotações com as carteiras e as URLs.
-2. **Estruturação:** as anotações viram um JSON validado (instituição, carteira, mês, ativos, pesos, URL).
+Cada carteira é **gravada no banco assim que a IA termina de lê-la** ([src/server/search.ts](src/server/search.ts)): depois de ler cada página, o modelo escreve um bloco `<carteira>{...}</carteira>` (instituição, carteira, mês, ativos, pesos, URL), que é validado e salvo enquanto a pesquisa continua. A tela atualiza a cada carteira salva e, se a busca cair no meio, o que já foi lido fica guardado. A busca roda no servidor: dá para trocar de aba ou recarregar a página sem interrompê-la.
 
 Cada carteira vira um "relatório" do tipo *Web*. Se a URL citada não apareceu nos resultados reais da busca, o relatório ganha um ⚠ para você conferir.
 
