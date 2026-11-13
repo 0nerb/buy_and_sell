@@ -2,7 +2,8 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const API_PORT = Number(process.env.PORT ?? 3000)
+// Mesma porta padrão do servidor (src/server/index.ts).
+const API_PORT = Number(process.env.PORT ?? 3100)
 
 export default defineConfig({
   root: 'src/web',

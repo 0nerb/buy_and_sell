@@ -24,7 +24,10 @@ import {
   setApiKey
 } from './store'
 
-const PORT = Number(process.env.PORT ?? 3000)
+/** Porta padrão longe da 3000, que costuma estar ocupada por outros projetos (Next.js, React…). */
+const DEFAULT_PORT = 3100
+const PORT_FROM_ENV = process.env.PORT ? Number(process.env.PORT) : null
+const PORT = PORT_FROM_ENV ?? DEFAULT_PORT
 /** `npm run dev`: a interface é servida pelo Vite (porta 5173), não por este servidor. */
 const DEV = process.argv.includes('--dev')
 const HOST = '127.0.0.1'
@@ -208,10 +211,48 @@ if (!DEV && existsSync(WEB_DIR)) {
   })
 }
 
-serve({ fetch: app.fetch, port: PORT, hostname: HOST }, () => {
-  const url = DEV ? 'http://localhost:5173' : existsSync(WEB_DIR) ? `http://localhost:${PORT}` : null
+/** Tenta abrir o servidor numa porta; resolve false se ela já estiver em uso. */
+function listen(port: number): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const server = serve({ fetch: app.fetch, port, hostname: HOST }, () => resolve(true))
+    server.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        server.close()
+        resolve(false)
+      } else reject(err)
+    })
+  })
+}
+
+async function start() {
+  // Com porta fixa (variável PORT) ou em modo dev (o Vite repassa /api para essa porta),
+  // não dá para trocar sozinho: avisa com clareza. No "npm start", procura a próxima livre.
+  const canMove = !DEV && PORT_FROM_ENV === null
+  let port = PORT
+  for (let tries = 0; ; tries++) {
+    if (await listen(port)) break
+    if (!canMove || tries >= 20) {
+      console.error(
+        `\n  A porta ${port} já está em uso por outro programa.\n` +
+          `  Feche o programa que está usando essa porta ou escolha outra, por exemplo:\n` +
+          `    PORT=${port + 1} npm ${DEV ? 'run dev' : 'start'}\n` +
+          `  (no Windows PowerShell: $env:PORT=${port + 1}; npm ${DEV ? 'run dev' : 'start'})\n`
+      )
+      process.exit(1)
+    }
+    console.warn(`  A porta ${port} já está em uso; tentando a ${port + 1}…`)
+    port++
+  }
+
+  const url = DEV ? 'http://localhost:5173' : existsSync(WEB_DIR) ? `http://localhost:${port}` : null
   if (!url) {
     console.error('Interface não encontrada em dist/web. Rode "npm start" (que faz o build) ou "npm run dev".')
+    return
   }
-  if (url) console.log(`\n  Recomendação rodando em ${url}\n  Dados em ${DATA_DIR}\n`)
+  console.log(`\n  Recomendação rodando em ${url}\n  Dados em ${DATA_DIR}\n`)
+}
+
+start().catch((err) => {
+  console.error(err)
+  process.exit(1)
 })

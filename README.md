@@ -58,17 +58,19 @@ Requer [Node.js](https://nodejs.org) 22 ou mais novo (Mac, Windows ou Linux).
 
 ```bash
 npm install
-npm start          # gera a interface e abre o servidor em http://localhost:3000
+npm start          # gera a interface e abre o servidor em http://localhost:3100
 ```
 
-Depois é só abrir **http://localhost:3000** no navegador. O servidor escuta apenas em `127.0.0.1`: ninguém na sua rede consegue acessar.
+Depois é só abrir **http://localhost:3100** no navegador (o endereço certo aparece no terminal). O servidor escuta apenas em `127.0.0.1`: ninguém na sua rede consegue acessar.
+
+Se a porta 3100 estiver ocupada por outro programa, o `npm start` usa a próxima livre (3101, 3102…) e mostra o endereço no terminal. Para fixar uma porta, use a variável `PORT` (ex.: `PORT=3200 npm start`; no PowerShell, `$env:PORT=3200; npm start`).
 
 Se você tem Claude Pro/Max e o Claude Code instalado e logado, não precisa configurar mais nada. As chaves de API (opcionais) podem ser coladas em **Configurações** (ficam em `data/secrets.json`, legível só pelo seu usuário) ou definidas num arquivo `.env` na raiz do projeto:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
 GEMINI_API_KEY=AIza...
-# PORT=3000                       # porta do servidor
+# PORT=3100                       # porta do servidor
 # RECOMENDACAO_DATA_DIR=./data    # onde ficam relatórios, PDFs e configurações
 ```
 
